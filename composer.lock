@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d41040a0d41a64832f05500b9a9861f3",
+    "content-hash": "3bc6b2a26d96465e836ab237383bb84f",
     "packages": [
         {
             "name": "composer/semver",
@@ -2569,6 +2569,105 @@
                 "source": "https://github.com/php-fig/log/tree/3.0.2"
             },
             "time": "2024-09-11T13:17:53+00:00"
+        },
+        {
+            "name": "rich-id/csv-generator-bundle",
+            "version": "v0.3.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/rich-id/csv-generator-bundle.git",
+                "reference": "4223b345f06421d81d485b1c655cd6a54218331f"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/rich-id/csv-generator-bundle/zipball/4223b345f06421d81d485b1c655cd6a54218331f",
+                "reference": "4223b345f06421d81d485b1c655cd6a54218331f",
+                "shasum": ""
+            },
+            "require": {
+                "doctrine/orm": "^2.7 || ^3.0",
+                "php": "^8.1",
+                "richcongress/bundle-toolbox": "*",
+                "symfony/http-foundation": "^6.0 || ^7.0",
+                "symfony/serializer": "^6.0 || ^7.0",
+                "symfony/translation": "^6.0 || ^7.0"
+            },
+            "require-dev": {
+                "richcongress/test-suite": "^0.2"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "RichId\\CsvGeneratorBundle\\": ""
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "RichId",
+                    "homepage": "https://www.rich-id.fr"
+                }
+            ],
+            "description": "A csv bundle for Symfony 5.4",
+            "support": {
+                "docs": "https://github.com/rich-id/csv-generator-bundle/blob/master/README.md",
+                "email": "team-devs@rich-id.io",
+                "issues": "https://github.com/rich-id/csv-generator-bundle/issues",
+                "source": "https://github.com/rich-id/csv-generator-bundle"
+            },
+            "time": "2024-06-03T10:53:45+00:00"
+        },
+        {
+            "name": "richcongress/bundle-toolbox",
+            "version": "v2.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/rich-id/bundle-toolbox.git",
+                "reference": "4c3fe2f9840d102cd6519a67c7a4ff37e43d3bac"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/rich-id/bundle-toolbox/zipball/4c3fe2f9840d102cd6519a67c7a4ff37e43d3bac",
+                "reference": "4c3fe2f9840d102cd6519a67c7a4ff37e43d3bac",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.1",
+                "symfony/config": "^6.0 || ^7.0",
+                "symfony/dependency-injection": "^6.0 || ^7.0",
+                "symfony/http-kernel": "^6.0 || ^7.0"
+            },
+            "require-dev": {
+                "doctrine/doctrine-bundle": "^2.6",
+                "doctrine/doctrine-migrations-bundle": "^2.0 || ^3.0",
+                "phpunit/phpunit": "^9.5",
+                "roave/security-advisories": "dev-latest"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "RichCongress\\BundleToolbox\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "RichCongress",
+                    "homepage": "https://www.richcongress.com"
+                }
+            ],
+            "description": "A set of classes and tools to quickly build a bundle",
+            "support": {
+                "issues": "https://github.com/rich-id/bundle-toolbox/issues",
+                "source": "https://github.com/rich-id/bundle-toolbox/tree/v2.0.0"
+            },
+            "time": "2024-06-03T09:23:07+00:00"
         },
         {
             "name": "sabberworm/php-css-parser",
@@ -11115,5 +11214,5 @@
         "ext-iconv": "*"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.6.0"
 }

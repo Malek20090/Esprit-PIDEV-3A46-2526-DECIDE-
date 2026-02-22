@@ -2,10 +2,9 @@
 
 namespace App\Controller;
 
+use App\Dto\SavingsTransactionCsvRow;
 use App\Entity\FinancialGoal;
 use App\Entity\SavingAccount;
-use App\Repository\FinancialGoalRepository;
-use App\Repository\SavingAccountRepository;
 use App\Service\SavingsCalendarService;
 use App\Service\SavingsPdfService;
 use App\Service\SavingsAssistantService;
@@ -14,13 +13,14 @@ use App\Service\SavingsStatsService;
 use App\Service\SavingsWhatIfAiService;
 use Doctrine\DBAL\Connection;
 use Knp\Component\Pager\PaginatorInterface;
+use RichId\CsvGeneratorBundle\Configuration\CsvGeneratorConfiguration;
+use RichId\CsvGeneratorBundle\Generator\CsvGeneratorInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\Security;
-use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\UX\Chartjs\Builder\ChartBuilderInterface;
 use Symfony\UX\Chartjs\Model\Chart;
@@ -1121,8 +1121,6 @@ class SavingsController extends AbstractController
         Security $security,
         Request $request,
         PaginatorInterface $paginator,
-        FinancialGoalRepository $financialGoalRepository,
-        SavingAccountRepository $savingAccountRepository,
         SavingsGoalStatsService $savingsGoalStatsService,
         SavingsStatsService $savingsStatsService,
         ChartBuilderInterface $chartBuilder
@@ -1245,12 +1243,53 @@ class SavingsController extends AbstractController
             'recommendations' => [],
         ];
 
-        if ($accId > 0) {
-            $accountEntity = $savingAccountRepository->find($accId);
-            if ($accountEntity instanceof SavingAccount) {
-                $goalRows = $financialGoalRepository->findGoalHealthByAccount($accountEntity);
-                $goalHealth = $savingsGoalStatsService->buildGoalHealthDashboard($goalRows, $balance);
+        if ($accId > 0 && count($goalsRaw) > 0) {
+            $today = new \DateTimeImmutable('today');
+            $goalRows = [];
+            foreach ($goalsRaw as $row) {
+                $target = max(0.0, $this->safeFloat($row['montant_cible'] ?? 0));
+                $current = max(0.0, $this->safeFloat($row['montant_actuel'] ?? 0));
+                $remaining = max(0.0, $target - $current);
+                $progressRatio = $target > 0 ? min(1.0, $current / $target) : 0.0;
+
+                $dateLimiteRaw = (string) ($row['date_limite'] ?? '');
+                $daysLeft = 999999;
+                if ($dateLimiteRaw !== '') {
+                    try {
+                        $goalDate = new \DateTimeImmutable(substr($dateLimiteRaw, 0, 10));
+                        $daysLeft = (int) $today->diff($goalDate)->format('%r%a');
+                    } catch (\Throwable $e) {
+                        $daysLeft = 999999;
+                    }
+                }
+
+                $dailyNeeded = 0.0;
+                if ($daysLeft > 0 && $remaining > 0.0) {
+                    $dailyNeeded = $remaining / $daysLeft;
+                }
+                $monthlyNeeded = $dailyNeeded * 30.0;
+
+                $urgencyScore = ((int) ($row['priorite'] ?? 3) * 8)
+                    + ((1.0 - $progressRatio) * 60)
+                    + ($daysLeft <= 0 ? 40 : ($daysLeft <= 7 ? 30 : ($daysLeft <= 30 ? 15 : 5)));
+
+                $goalRows[] = [
+                    'id' => (int) ($row['id'] ?? 0),
+                    'nom' => (string) ($row['nom'] ?? 'Goal'),
+                    'montantCible' => $target,
+                    'montantActuel' => $current,
+                    'priorite' => (int) ($row['priorite'] ?? 3),
+                    'dateLimite' => $dateLimiteRaw !== '' ? $dateLimiteRaw : null,
+                    'progressRatio' => $progressRatio,
+                    'remainingAmount' => $remaining,
+                    'daysLeft' => $daysLeft,
+                    'dailyNeeded' => $dailyNeeded,
+                    'monthlyNeeded' => $monthlyNeeded,
+                    'urgencyScore' => $urgencyScore,
+                ];
             }
+
+            $goalHealth = $savingsGoalStatsService->buildGoalHealthDashboard($goalRows, $balance);
         }
 
         // ----------------------------
@@ -2090,7 +2129,12 @@ class SavingsController extends AbstractController
     }
 
     #[Route('/savings/export/csv', name: 'app_savings_export_csv', methods: ['GET'])]
-    public function exportCsv(Connection $conn, Security $security, Request $request, SerializerInterface $serializer): Response
+    public function exportCsv(
+        Connection $conn,
+        Security $security,
+        Request $request,
+        CsvGeneratorInterface $csvGenerator
+    ): Response
     {
         $userId = $this->resolveUserId($conn, $security, $request);
 
@@ -2140,23 +2184,19 @@ class SavingsController extends AbstractController
             $params
         );
 
-        $normalized = array_map(static fn(array $r): array => [
-            'ID' => $r['id'] ?? '',
-            'Type' => $r['type'] ?? '',
-            'Amount' => $r['montant'] ?? '',
-            'Date' => $r['date'] ?? '',
-            'Description' => $r['description'] ?? '',
-        ], $rows);
+        $objects = array_map(static fn(array $r): SavingsTransactionCsvRow => new SavingsTransactionCsvRow(
+            (int) ($r['id'] ?? 0),
+            (string) ($r['type'] ?? ''),
+            number_format((float) ($r['montant'] ?? 0), 2, '.', ''),
+            (string) ($r['date'] ?? ''),
+            (string) ($r['description'] ?? '')
+        ), $rows);
 
-        $csv = $serializer->encode($normalized, 'csv', [
-            'csv_headers' => ['ID', 'Type', 'Amount', 'Date', 'Description'],
-            'csv_delimiter' => ',',
-        ]);
+        $configuration = CsvGeneratorConfiguration::create(SavingsTransactionCsvRow::class, $objects)
+            ->setDelimiter(',')
+            ->setWithHeader(true);
 
-        return new Response($csv, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="savings_transactions.csv"',
-        ]);
+        return $csvGenerator->streamResponse($configuration, 'savings_transactions');
     }
 
     #[Route('/savings/what-if', name: 'app_savings_what_if', methods: ['POST'])]
