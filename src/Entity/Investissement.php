@@ -5,6 +5,7 @@ namespace App\Entity;
 use App\Repository\InvestissementRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: InvestissementRepository::class)]
 class Investissement
@@ -15,7 +16,13 @@ class Investissement
     private ?int $id = null;
 
     #[ORM\Column]
+    #[Assert\NotNull(message: 'Le montant est obligatoire.')]
+    #[Assert\GreaterThanOrEqual(
+    value: 1,
+    message: 'Le montant investi doit être au minimum de 1 dollar.'
+    )]
     private ?float $amountInvested = null;
+
 
     #[ORM\Column]
     private ?float $buyPrice = null;
@@ -27,9 +34,11 @@ class Investissement
     private ?\DateTime $createdAt = null;
 
     #[ORM\ManyToOne(inversedBy: 'investissements')]
+    #[ORM\JoinColumn(nullable: true)]
     private ?Crypto $crypto = null;
 
     #[ORM\ManyToOne(inversedBy: 'investissements')]
+    #[ORM\JoinColumn(nullable: true)]
     private ?Objectif $objectif = null;
 
     #[ORM\ManyToOne]
@@ -49,7 +58,6 @@ class Investissement
     public function setAmountInvested(float $amountInvested): static
     {
         $this->amountInvested = $amountInvested;
-
         return $this;
     }
 
@@ -61,7 +69,6 @@ class Investissement
     public function setBuyPrice(float $buyPrice): static
     {
         $this->buyPrice = $buyPrice;
-
         return $this;
     }
 
@@ -73,7 +80,6 @@ class Investissement
     public function setQuantity(float $quantity): static
     {
         $this->quantity = $quantity;
-
         return $this;
     }
 
@@ -85,7 +91,6 @@ class Investissement
     public function setCreatedAt(\DateTime $createdAt): static
     {
         $this->createdAt = $createdAt;
-
         return $this;
     }
 
@@ -97,7 +102,6 @@ class Investissement
     public function setCrypto(?Crypto $crypto): static
     {
         $this->crypto = $crypto;
-
         return $this;
     }
 
@@ -109,7 +113,6 @@ class Investissement
     public function setObjectif(?Objectif $objectif): static
     {
         $this->objectif = $objectif;
-
         return $this;
     }
 
@@ -121,7 +124,6 @@ class Investissement
     public function setUserId(?User $user_id): static
     {
         $this->user_id = $user_id;
-
         return $this;
     }
 }

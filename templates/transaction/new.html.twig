@@ -1,14 +1,23 @@
-{% extends 'admin/base_admin.html.twig' %}
+﻿{% extends 'admin/layout.html.twig' %}
 
-{% block title %}New Transaction{% endblock %}
+{% block title %}Nouvelle transaction | Decide${% endblock %}
 
-{% block body %}
-<h1>Create Transaction</h1>
+{% block content %}
+<div class="admin-page">
+    <div class="page-header-card">
+        <div>
+            <h1>Nouvelle transaction</h1>
+            <p class="mb-0">Record a new movement (income, expense, savings)</p>
+        </div>
+        <a href="{{ path('app_transaction_index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to list
+        </a>
+    </div>
 
-{{ form_start(form) }}
-    {{ form_widget(form) }}
-    <button class="btn">Save</button>
-{{ form_end(form) }}
-
-<a href="{{ path('app_transaction_index') }}">Back</a>
+    <div class="card-custom">
+        {{ include('transaction/_form.html.twig') }}
+    </div>
+</div>
 {% endblock %}
+
+

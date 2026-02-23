@@ -7,7 +7,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
-
+use App\Entity\User;
 #[ORM\Entity(repositoryClass: ExpenseRepository::class)]
 class Expense
 {
@@ -21,11 +21,20 @@ class Expense
     #[Assert\PositiveOrZero(message: 'Le montant doit être positif.')]
     private ?float $amount = null;
 
-    #[ORM\Column(length: 100)]
-    private ?string $categorie = null;
+    /**
+     * Logical "category" field, stored in DB column "category".
+     */
+    #[ORM\Column(name: 'category', length: 100)]
+    private ?string $category = null;
 
-    #[ORM\Column(type: Types::DATE_MUTABLE)]
-    private ?\DateTime $date = null;
+    /**
+     * Logical "expenseDate" field, stored in DB column "expense_date".
+     */
+    #[ORM\Column(name: 'expense_date', type: Types::DATE_MUTABLE)]
+    private ?\DateTimeInterface $expenseDate = null;
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $description = null;
 
     #[ORM\ManyToOne(targetEntity: Revenue::class, inversedBy: 'expenses')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -51,38 +60,86 @@ class Expense
         return $this->id;
     }
 
+    public function getAmount(): ?float
+    {
+        return $this->amount;
+    }
+
+    public function setAmount(float $amount): static
+    {
+        $this->amount = $amount;
+
+        return $this;
+    }
+
+    /**
+     * Backwards‑compatibility alias.
+     */
     public function getMontant(): ?float
     {
-        return $this->montant;
+        return $this->amount;
     }
 
+    /**
+     * Backwards‑compatibility alias.
+     */
     public function setMontant(float $montant): static
     {
-        $this->montant = $montant;
+        $this->amount = $montant;
 
         return $this;
     }
 
-    public function getCategorie(): ?string
+    public function getCategory(): ?string
     {
-        return $this->categorie;
+        return $this->category;
     }
 
-    public function setCategorie(string $categorie): static
+    public function setCategory(string $category): static
     {
-        $this->categorie = $categorie;
+        $this->category = $category;
 
         return $this;
     }
 
-    public function getDate(): ?\DateTime
+    public function getExpenseDate(): ?\DateTimeInterface
     {
-        return $this->date;
+        return $this->expenseDate;
     }
 
-    public function setDate(\DateTime $date): static
+    public function setExpenseDate(\DateTimeInterface $expenseDate): static
     {
-        $this->date = $date;
+        $this->expenseDate = $expenseDate;
+
+        return $this;
+    }
+
+    /**
+     * Backwards‑compatibility alias.
+     */
+    public function getDate(): ?\DateTimeInterface
+    {
+        return $this->expenseDate;
+    }
+
+    /**
+     * Backwards‑compatibility alias.
+     */
+    public function setDate(\DateTimeInterface $date): static
+    {
+        $this->expenseDate = $date;
+
+        return $this;
+    }
+
+    public function getDescription(): ?string
+    {
+        return $this->description;
+    }
+
+    public function setDescription(?string $description): static
+    {
+        $this->description = $description;
 
         return $this;
     }
@@ -98,4 +155,19 @@ class Expense
 
         return $this;
     }
+    #[ORM\ManyToOne(targetEntity: User::class)]
+#[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+private ?User $user = null;
+
+public function getUser(): ?User
+{
+    return $this->user;
+}
+
+public function setUser(?User $user): self
+{
+    $this->user = $user;
+    return $this;
+}
+    
 }

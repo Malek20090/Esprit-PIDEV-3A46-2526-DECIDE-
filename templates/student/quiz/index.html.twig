@@ -1,0 +1,216 @@
+﻿{% extends 'base_pages.html.twig' %}
+
+{% block title %}Tous les Quiz | Decide${% endblock %}
+
+{% block body_class %}alea-page learning-page{% endblock %}
+
+{% block body %}
+    <!-- Hero (same style as Alea / Services) -->
+    <section class="hero">
+        <div class="container text-center wrap">
+            <div class="learning-hero-tag">
+                <i class="fas fa-brain"></i> Review mode
+            </div>
+            <h1>Tous les Quiz</h1>
+            <p>Testez vos connaissances en finance avec nos quiz interactifs.</p>
+            <div class="breadcrumbs">
+                <a href="{{ path('app_home') }}">Home</a> /
+                <a href="{{ path('app_service') }}">Modules</a> /
+                <span class="active">Quiz</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="container py-5">
+        <div class="row justify-content-center mb-4">
+            <div class="col-md-6">
+                <div class="d-flex justify-content-center learning-filter">
+                    <div class="dropdown">
+                        <button class="btn btn-outline-success dropdown-toggle" type="button" id="sortDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-sort"></i> Trier par
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="sortDropdown">
+                            <li><a class="dropdown-item" href="{{ path('student_quiz_index', { sort: 'question', order: (sortBy == 'question' and order == 'ASC') ? 'DESC' : 'ASC' }) }}">
+                                Question {% if sortBy == 'question' %}<i class="fas fa-sort-{{ order == 'ASC' ? 'up' : 'down' }}"></i>{% endif %}
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ path('student_quiz_index', { sort: 'pointsValeur', order: (sortBy == 'pointsValeur' and order == 'ASC') ? 'DESC' : 'ASC' }) }}">
+                                Points {% if sortBy == 'pointsValeur' %}<i class="fas fa-sort-{{ order == 'ASC' ? 'up' : 'down' }}"></i>{% endif %}
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if quizzes|length > 0 %}
+            <div class="row g-4">
+                {% for quiz in quizzes %}
+                    <div class="col-md-6 col-lg-4">
+                        {% set difficulty = 'Facile' %}
+                        {% set difficultyClass = 'quiz-level-easy' %}
+                        {% if quiz.pointsValeur >= 5 and quiz.pointsValeur < 10 %}
+                            {% set difficulty = 'Intermediate' %}
+                            {% set difficultyClass = 'quiz-level-medium' %}
+                        {% elseif quiz.pointsValeur >= 10 %}
+                            {% set difficulty = 'Advanced' %}
+                            {% set difficultyClass = 'quiz-level-hard' %}
+                        {% endif %}
+
+                        <div class="card h-100 shadow-sm border-0 quiz-card">
+                            <div class="card-header bg-success text-white text-center py-3 quiz-card-header">
+                                <div class="small text-white-50">Quiz Challenge</div>
+                                <div class="quiz-difficulty {{ difficultyClass }}">
+                                    <i class="fas fa-signal me-1"></i>{{ difficulty }}
+                                </div>
+                            </div>
+                            <div class="card-body d-flex flex-column">
+                                <div class="mb-3">
+                                    {% if quiz.cours %}
+                                        <span class="badge bg-primary text-white px-3 py-2 rounded-pill mb-2">
+                                            <i class="fas fa-book me-1"></i> {{ quiz.cours.titre|slice(0, 25) }}{% if quiz.cours.titre|length > 25 %}...{% endif %}
+                                        </span>
+                                    {% endif %}
+                                    <span class="badge bg-warning text-dark px-3 py-2 rounded-pill">
+                                        <i class="fas fa-star me-1"></i> {{ quiz.pointsValeur }} point{{ quiz.pointsValeur > 1 ? 's' : '' }}
+                                    </span>
+                                </div>
+
+                                <h5 class="card-title text-dark fw-bold mb-3">
+                                    {{ quiz.question|slice(0, 90) }}{% if quiz.question|length > 90 %}...{% endif %}
+                                </h5>
+
+                                <div class="mb-3">
+                                    <div class="d-flex align-items-center text-muted">
+                                        <i class="fas fa-list me-2"></i>
+                                        <span>{{ quiz.choixReponses|length }} choix disponible{{ quiz.choixReponses|length > 1 ? 's' : '' }}</span>
+                                    </div>
+                                </div>
+
+                                <div class="mt-auto">
+                                    <a href="{{ path('student_quiz_pass', {'id': quiz.id}) }}" class="btn btn-success w-100 rounded-pill fw-bold quiz-cta">
+                                        <i class="fas fa-play me-2"></i> Commencer le quiz
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-question-circle fa-4x text-muted mb-3"></i>
+                <h3 class="text-muted">No quiz available</h3>
+                <p class="text-muted">Quizzes will be available soon.</p>
+            </div>
+
+            {% if recommendedCourses|default([])|length > 0 or recommendedQuizzes|default([])|length > 0 %}
+                <div class="row g-4 mt-1">
+                    <div class="col-lg-6">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <h5 class="mb-3 text-primary">
+                                    <i class="fas fa-book-open me-2"></i>Cours recommandés (Finance & Investissement)
+                                </h5>
+                                {% if recommendedCourses|default([])|length > 0 %}
+                                    <div class="list-group list-group-flush">
+                                        {% for cour in recommendedCourses %}
+                                            <a href="{{ path('student_cours_show', {'id': cour.id}) }}" class="list-group-item list-group-item-action px-0">
+                                                <div class="fw-semibold">{{ cour.titre }}</div>
+                                                <small class="text-muted">{{ cour.typeMedia ?: 'Module' }}</small>
+                                            </a>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <p class="text-muted mb-0">Aucun cours recommandé disponible.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-6">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <h5 class="mb-3 text-success">
+                                    <i class="fas fa-coins me-2"></i>Quiz recommandés (Finance & Investissement)
+                                </h5>
+                                {% if recommendedQuizzes|default([])|length > 0 %}
+                                    <div class="list-group list-group-flush">
+                                        {% for quiz in recommendedQuizzes %}
+                                            <a href="{{ path('student_quiz_pass', {'id': quiz.id}) }}" class="list-group-item list-group-item-action px-0">
+                                                <div class="fw-semibold">
+                                                    {{ quiz.question|slice(0, 95) }}{% if quiz.question|length > 95 %}...{% endif %}
+                                                </div>
+                                                <small class="text-muted">{{ quiz.pointsValeur }} point{{ quiz.pointsValeur > 1 ? 's' : '' }}</small>
+                                            </a>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <p class="text-muted mb-0">Aucun quiz recommandé disponible.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        {% endif %}
+
+        <div class="mt-5 text-center">
+            <a href="{{ path('student_cours_index') }}" class="btn btn-primary me-2">
+                <i class="fas fa-book"></i> View courses
+            </a>
+            <a href="{{ path('app_home') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to home
+            </a>
+        </div>
+    </section>
+    <style>
+        .quiz-card {
+            border-radius: 18px;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .quiz-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 18px 45px rgba(25, 135, 84, 0.25);
+        }
+
+        .quiz-card-header {
+            position: relative;
+        }
+
+        .quiz-difficulty {
+            position: absolute;
+            right: 14px;
+            bottom: 10px;
+            font-size: 0.75rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .quiz-level-easy {
+            border: 1px solid #d1e7dd;
+        }
+
+        .quiz-level-medium {
+            border: 1px solid #ffeeba;
+        }
+
+        .quiz-level-hard {
+            border: 1px solid #f5c2c7;
+        }
+
+        .quiz-cta {
+            box-shadow: 0 10px 25px rgba(25, 135, 84, 0.4);
+        }
+
+        .quiz-cta:hover {
+            box-shadow: 0 16px 40px rgba(25, 135, 84, 0.5);
+        }
+    </style>
+{% endblock %}
+
+
+
+
