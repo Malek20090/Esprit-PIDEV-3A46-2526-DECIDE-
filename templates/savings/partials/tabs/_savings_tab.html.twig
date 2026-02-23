@@ -202,9 +202,11 @@
         </tbody>
       </table>
     </div>
-    <div class="savings-pagination">
-      {{ knp_pagination_render(transactions, '@KnpPaginator/Pagination/bootstrap_v5_pagination.html.twig') }}
-    </div>
+    {% if transactions.paginationData is defined %}
+      <div class="savings-pagination">
+        {{ knp_pagination_render(transactions, '@KnpPaginator/Pagination/bootstrap_v5_pagination.html.twig') }}
+      </div>
+    {% endif %}
 
     <div class="tiny-note">Connected to your DB ✓ · Search/Sort/Filter use query params now.</div>
 
@@ -420,5 +422,4 @@
 </script>
 
 {% endif %}
-
 
