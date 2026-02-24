@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirm Your Account</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,sans-serif;color:#0f172a;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f4f7fb;padding:24px 12px;">
+    <tr>
+        <td align="center">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #dbe4ef;">
+                <tr>
+                    <td style="background:linear-gradient(120deg,#0f4fa8,#2563eb);padding:26px 28px;color:#ffffff;">
+                        <h1 style="margin:0;font-size:24px;line-height:1.2;">Confirm Your Email</h1>
+                        <p style="margin:10px 0 0;font-size:14px;opacity:.95;">One last step to activate your account</p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:28px;">
+                        <p style="margin:0 0 14px;font-size:15px;">Hello {{ name|e }},</p>
+                        <p style="margin:0 0 18px;font-size:15px;line-height:1.6;">
+                            Thank you for registering. Click the button below to confirm your email address and finish your account setup.
+                        </p>
+
+                        <p style="margin:0 0 24px;">
+                            <a href="{{ confirm_url|e('html_attr') }}"
+                               style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:700;">
+                                Confirm My Account
+                            </a>
+                        </p>
+
+                        <p style="margin:0 0 10px;font-size:13px;color:#475569;">If the button does not work, use this link:</p>
+                        <p style="margin:0 0 18px;font-size:13px;word-break:break-all;">
+                            <a href="{{ confirm_url|e('html_attr') }}" style="color:#1d4ed8;">{{ confirm_url|e }}</a>
+                        </p>
+
+                        <p style="margin:0;font-size:12px;color:#64748b;">
+                            If you did not create this account, you can ignore this email.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

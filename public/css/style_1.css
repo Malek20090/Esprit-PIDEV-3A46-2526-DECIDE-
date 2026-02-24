@@ -1424,6 +1424,55 @@ body.admin-body {
     padding: 1.25rem !important;
 }
 
+/* Fix: prevent malformed KNP pagination items from stretching vertically */
+.tx-admin .pagination-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 1.25rem;
+}
+
+.tx-admin .pagination-wrapper .pagination {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    height: auto !important;
+}
+
+.tx-admin .pagination-wrapper .pagination li {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    height: auto !important;
+    min-height: 0 !important;
+}
+
+.tx-admin .pagination-wrapper .pagination li:empty,
+.tx-admin .pagination-wrapper .pagination span:empty {
+    display: none !important;
+}
+
+.tx-admin .pagination-wrapper .pagination a,
+.tx-admin .pagination-wrapper .pagination span,
+.tx-admin .pagination-wrapper .pagination .page-link {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    min-width: 46px;
+    height: 46px !important;
+    max-height: 46px !important;
+    line-height: 1;
+    padding: 0 !important;
+    overflow: hidden;
+    position: static !important;
+}
+
 @media (max-width: 1100px) {
     .tx-kpi-grid {
         grid-template-columns: 1fr;

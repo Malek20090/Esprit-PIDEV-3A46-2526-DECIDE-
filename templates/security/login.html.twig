@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sign In | FinanceLogo</title>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/login.css') }}">
     <link rel="stylesheet" href="{{ asset('css/dark-mode.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -30,15 +33,12 @@ window.addEventListener('load', () => {
                 <img src="{{ asset('img/chat1.png') }}" alt="DECIDE$ Logo" class="brand-logo animate-logo">
             </div>
 
-            <h2>
-                Access your financial workspace<br>
-                <span>securely</span>
-            </h2>
+            <h2>Access your financial workspace <span>securely</span></h2>
 
             <div class="accent-line"></div>
 
             <p class="description">
-                Manage assets, analyze performance, and secure your future with our modern platform.
+                Manage assets, analyze performance, and secure your future with a modern, secure platform.
             </p>
         </div>
 
@@ -50,6 +50,12 @@ window.addEventListener('load', () => {
 
                 {% for message in app.flashes('success') %}
                     <div class="alert alert-success mb-3" role="alert">{{ message }}</div>
+                {% endfor %}
+                {% for message in app.flashes('error') %}
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-circle"></i>
+                        {{ message }}
+                    </div>
                 {% endfor %}
 
                 {% if error %}
@@ -84,7 +90,7 @@ window.addEventListener('load', () => {
                             <input
                                 type="password"
                                 name="_password"
-                                placeholder="••••••••"
+                                placeholder="********"
                                 required
                                 minlength="8"
                                 maxlength="255"
@@ -103,15 +109,46 @@ window.addEventListener('load', () => {
                         <a href="#" class="forgot-link">Forgot password?</a>
                     </div>
 
-                    <button type="submit" class="btn-login">
-                        Sign In
-                    </button>
+                    <button type="submit" class="btn-login">Sign In</button>
 
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
                 </form>
 
+                <div class="social-auth">
+                    <a href="{{ path('app_connect_google') }}" class="social-btn social-google">
+                        <i class="fab fa-google"></i>
+                        <span>Continue with Google</span>
+                    </a>
+                    <a href="{{ path('app_connect_facebook') }}" class="social-btn social-facebook">
+                        <i class="fab fa-facebook-f"></i>
+                        <span>Continue with Facebook</span>
+                    </a>
+                </div>
+
                 <div class="divider">
-                    <span>or</span>
+                    <span>or use biometric sign-in</span>
+                </div>
+
+                <div class="biometric-stack">
+                    <div class="auth-box">
+                        <button type="button" id="faceid-login-btn" class="auth-btn auth-btn-dark">Sign in with Face ID</button>
+                        <div id="faceid-login-status" class="auth-status"></div>
+                    </div>
+
+                    <div class="auth-box">
+                        <video id="facepp-login-video" class="facepp-video" autoplay playsinline muted></video>
+                        <canvas id="facepp-login-canvas" style="display:none;"></canvas>
+                        <div class="facepp-actions">
+                            <button type="button" id="facepp-login-start-btn" class="auth-btn auth-btn-dark">Open camera</button>
+                            <button type="button" id="facepp-login-btn" class="auth-btn auth-btn-dark">Capture and sign in</button>
+                            <button type="button" id="facepp-login-stop-btn" class="auth-btn auth-btn-dark">Stop camera</button>
+                        </div>
+                        <div id="facepp-login-status" class="auth-status"></div>
+                    </div>
+                </div>
+
+                <div class="divider">
+                    <span>new here?</span>
                 </div>
 
                 <div class="footer-links">
@@ -131,5 +168,205 @@ window.addEventListener('load', () => {
 </div>
 
 <script src="{{ asset('js/theme-toggle.js') }}"></script>
+<script>
+    (() => {
+        const btn = document.getElementById('faceid-login-btn');
+        const status = document.getElementById('faceid-login-status');
+        const emailInput = document.querySelector('input[name="_username"]');
+        if (!btn || !status || !emailInput) {
+            return;
+        }
+
+        const setStatus = (text) => {
+            status.textContent = text;
+        };
+
+        const toBase64Url = (bytes) => {
+            let binary = '';
+            bytes.forEach((b) => { binary += String.fromCharCode(b); });
+            return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+        };
+
+        const fromBase64Url = (value) => {
+            const pad = value.length % 4;
+            const b64 = (value + (pad ? '='.repeat(4 - pad) : '')).replace(/-/g, '+').replace(/_/g, '/');
+            const raw = atob(b64);
+            return Uint8Array.from(raw, c => c.charCodeAt(0));
+        };
+        const isIpHost = (host) => /^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host.includes(':');
+
+        btn.addEventListener('click', async () => {
+            try {
+                if (!window.PublicKeyCredential || !navigator.credentials) {
+                    setStatus('Face ID is not supported on this browser.');
+                    return;
+                }
+                if (!window.isSecureContext) {
+                    setStatus('Face ID requires a secure context (HTTPS or localhost).');
+                    return;
+                }
+                if (isIpHost(window.location.hostname)) {
+                    setStatus('Use http://localhost:8000 instead of 127.0.0.1 for Face ID.');
+                    return;
+                }
+
+                const email = emailInput.value.trim().toLowerCase();
+                if (!email) {
+                    setStatus('Enter your email first.');
+                    return;
+                }
+
+                setStatus('Loading Face ID challenge...');
+                const optionsRes = await fetch('{{ path('app_faceid_options') }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ email }),
+                });
+                const optionsData = await optionsRes.json();
+                if (!optionsRes.ok || !optionsData.success) {
+                    setStatus(optionsData.message || 'Cannot start Face ID login.');
+                    return;
+                }
+
+                const publicKey = optionsData.publicKey;
+                publicKey.challenge = fromBase64Url(publicKey.challenge);
+                publicKey.allowCredentials = (publicKey.allowCredentials || []).map((cred) => ({
+                    ...cred,
+                    id: fromBase64Url(cred.id),
+                }));
+
+                setStatus('Waiting for Face ID...');
+                const assertion = await navigator.credentials.get({ publicKey });
+                if (!assertion) {
+                    setStatus('Face ID cancelled.');
+                    return;
+                }
+
+                const verifyRes = await fetch('{{ path('app_faceid_verify') }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({
+                        email,
+                        credential_id: toBase64Url(new Uint8Array(assertion.rawId)),
+                        client_data_json: toBase64Url(new Uint8Array(assertion.response.clientDataJSON)),
+                    }),
+                });
+                const verifyData = await verifyRes.json();
+                if (!verifyRes.ok || !verifyData.success) {
+                    setStatus(verifyData.message || 'Face ID verification failed.');
+                    return;
+                }
+
+                setStatus('Success. Redirecting...');
+                window.location.href = verifyData.redirect || '{{ path('app_login') }}';
+            } catch (e) {
+                const details = e && e.name ? ` (${e.name})` : '';
+                setStatus(`Face ID login failed${details}.`);
+            }
+        });
+    })();
+
+    (() => {
+        const btn = document.getElementById('facepp-login-btn');
+        const startBtn = document.getElementById('facepp-login-start-btn');
+        const stopBtn = document.getElementById('facepp-login-stop-btn');
+        const status = document.getElementById('facepp-login-status');
+        const video = document.getElementById('facepp-login-video');
+        const canvas = document.getElementById('facepp-login-canvas');
+        const emailInput = document.querySelector('input[name="_username"]');
+        if (!btn || !startBtn || !stopBtn || !status || !video || !canvas || !emailInput) {
+            return;
+        }
+        let stream = null;
+
+        const setStatus = (text) => {
+            status.textContent = text;
+        };
+
+        const stopStream = () => {
+            if (stream) {
+                stream.getTracks().forEach((track) => track.stop());
+                stream = null;
+            }
+            video.srcObject = null;
+        };
+
+        startBtn.addEventListener('click', async () => {
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    setStatus('Camera is not supported on this browser.');
+                    return;
+                }
+                stopStream();
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+                    audio: false,
+                });
+                video.srcObject = stream;
+                setStatus('Camera opened. Center your face then capture.');
+            } catch (e) {
+                const details = e && e.name ? ` (${e.name})` : '';
+                setStatus(`Cannot open camera${details}.`);
+            }
+        });
+
+        stopBtn.addEventListener('click', () => {
+            stopStream();
+            setStatus('Camera stopped.');
+        });
+
+        btn.addEventListener('click', async () => {
+            try {
+                const email = emailInput.value.trim().toLowerCase();
+                if (!email) {
+                    setStatus('Enter your email first.');
+                    return;
+                }
+                if (!stream || !video.videoWidth || !video.videoHeight) {
+                    setStatus('Open camera first.');
+                    return;
+                }
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    setStatus('Camera capture context failed.');
+                    return;
+                }
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+                if (!blob) {
+                    setStatus('Failed to capture image.');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('email', email);
+                formData.append('image', blob, 'facepp-login.jpg');
+
+                setStatus('Verifying with Face++...');
+                const res = await fetch('{{ path('app_facepp_verify') }}', {
+                    method: 'POST',
+                    body: formData,
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    setStatus(data.message || 'Face++ verification failed.');
+                    return;
+                }
+
+                stopStream();
+                setStatus('Success. Redirecting...');
+                window.location.href = data.redirect || '{{ path('app_login') }}';
+            } catch (e) {
+                const details = e && e.name ? ` (${e.name})` : '';
+                setStatus(`Face++ login failed${details}.`);
+            }
+        });
+
+        window.addEventListener('beforeunload', stopStream);
+    })();
+</script>
 </body>
 </html>
