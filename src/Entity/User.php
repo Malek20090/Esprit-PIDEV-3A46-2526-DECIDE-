@@ -65,6 +65,27 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Assert\Length(max: 255, maxMessage: 'Image path cannot exceed 255 characters.')]
     private ?string $image = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $faceIdCredentialId = null;
+
+    #[ORM\Column]
+    private bool $faceIdEnabled = false;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $facePlusToken = null;
+
+    #[ORM\Column]
+    private bool $facePlusEnabled = false;
+
+    #[ORM\Column(options: ['default' => false])]
+    private bool $emailVerified = false;
+
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $emailVerificationToken = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $emailVerifiedAt = null;
+
     public function __construct()
     {
         $this->transactions = new ArrayCollection();
@@ -166,6 +187,83 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setImage(?string $image): self
     {
         $this->image = $image;
+        return $this;
+    }
+
+    public function getFaceIdCredentialId(): ?string
+    {
+        return $this->faceIdCredentialId;
+    }
+
+    public function setFaceIdCredentialId(?string $faceIdCredentialId): self
+    {
+        $this->faceIdCredentialId = $faceIdCredentialId;
+        return $this;
+    }
+
+    public function isFaceIdEnabled(): bool
+    {
+        return $this->faceIdEnabled;
+    }
+
+    public function setFaceIdEnabled(bool $faceIdEnabled): self
+    {
+        $this->faceIdEnabled = $faceIdEnabled;
+        return $this;
+    }
+
+    public function getFacePlusToken(): ?string
+    {
+        return $this->facePlusToken;
+    }
+
+    public function setFacePlusToken(?string $facePlusToken): self
+    {
+        $this->facePlusToken = $facePlusToken;
+        return $this;
+    }
+
+    public function isFacePlusEnabled(): bool
+    {
+        return $this->facePlusEnabled;
+    }
+
+    public function setFacePlusEnabled(bool $facePlusEnabled): self
+    {
+        $this->facePlusEnabled = $facePlusEnabled;
+        return $this;
+    }
+
+    public function isEmailVerified(): bool
+    {
+        return $this->emailVerified;
+    }
+
+    public function setEmailVerified(bool $emailVerified): self
+    {
+        $this->emailVerified = $emailVerified;
+        return $this;
+    }
+
+    public function getEmailVerificationToken(): ?string
+    {
+        return $this->emailVerificationToken;
+    }
+
+    public function setEmailVerificationToken(?string $emailVerificationToken): self
+    {
+        $this->emailVerificationToken = $emailVerificationToken;
+        return $this;
+    }
+
+    public function getEmailVerifiedAt(): ?\DateTimeImmutable
+    {
+        return $this->emailVerifiedAt;
+    }
+
+    public function setEmailVerifiedAt(?\DateTimeImmutable $emailVerifiedAt): self
+    {
+        $this->emailVerifiedAt = $emailVerifiedAt;
         return $this;
     }
 

@@ -5,6 +5,8 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
     user_images_directory: '%kernel.project_dir%/public/uploads/users'
+    facepp_base_url: '%env(string:FACEPP_API_BASE_URL)%'
+    facepp_min_confidence: '%env(float:FACEPP_MIN_CONFIDENCE)%'
 services:
     # default configuration for services in *this* file
     _defaults:
@@ -25,3 +27,10 @@ services:
     App\Service\InvestissementCalculatorService:
         autowire: true
         autoconfigure: true
+
+    App\Service\FacePlusPlusService:
+        arguments:
+            $apiKey: '%env(string:FACEPP_API_KEY)%'
+            $apiSecret: '%env(string:FACEPP_API_SECRET)%'
+            $baseUrl: '%facepp_base_url%'
+            $minConfidence: '%facepp_min_confidence%'

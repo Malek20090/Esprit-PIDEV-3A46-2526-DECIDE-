@@ -16,6 +16,7 @@ security:
     main:
       lazy: true
       provider: app_user_provider
+      user_checker: App\Security\UserChecker
 
       form_login:
         login_path: app_login
@@ -28,7 +29,12 @@ security:
 
   access_control:
     - { path: ^/login, roles: PUBLIC_ACCESS }
+    - { path: ^/connect/google, roles: PUBLIC_ACCESS }
+    - { path: ^/connect/facebook, roles: PUBLIC_ACCESS }
     - { path: ^/register, roles: PUBLIC_ACCESS }
+    - { path: ^/auth/faceid, roles: PUBLIC_ACCESS }
+    - { path: ^/auth/facepp, roles: PUBLIC_ACCESS }
+    - { path: ^/health/facepp, roles: PUBLIC_ACCESS }
 
     # Admin area
     - { path: ^/transaction, roles: ROLE_ADMIN }
