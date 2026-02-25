@@ -7,6 +7,10 @@ parameters:
     user_images_directory: '%kernel.project_dir%/public/uploads/users'
     facepp_base_url: '%env(string:FACEPP_API_BASE_URL)%'
     facepp_min_confidence: '%env(float:FACEPP_MIN_CONFIDENCE)%'
+    google_ai_api_key_default: ''
+    google_ai_model_default: 'gemini-2.5-flash'
+    openai_api_key_default: ''
+    openai_model_default: 'gpt-4o-mini'
 services:
     # default configuration for services in *this* file
     _defaults:
@@ -34,3 +38,13 @@ services:
             $apiSecret: '%env(string:FACEPP_API_SECRET)%'
             $baseUrl: '%facepp_base_url%'
             $minConfidence: '%facepp_min_confidence%'
+
+    App\Service\SalaryExpenseAiService:
+        arguments:
+            $googleAiApiKey: '%env(default:google_ai_api_key_default:GOOGLE_AI_API_KEY)%'
+            $googleAiModel: '%env(default:google_ai_model_default:GOOGLE_AI_MODEL)%'
+
+    App\Service\CasDecisionAiService:
+        arguments:
+            $openAiApiKey: '%env(default:openai_api_key_default:OPENAI_API_KEY)%'
+            $openAiModel: '%env(default:openai_model_default:OPENAI_MODEL)%'

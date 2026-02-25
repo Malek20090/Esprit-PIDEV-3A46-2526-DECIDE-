@@ -20,4 +20,12 @@ if (class_exists(Doctrine\Bundle\FixturesBundle\DoctrineFixturesBundle::class)) 
     $bundles[Doctrine\Bundle\FixturesBundle\DoctrineFixturesBundle::class] = ['dev' => true, 'test' => true];
 }
 
+if (class_exists(Symfony\UX\Chartjs\ChartjsBundle::class)) {
+    $bundles[Symfony\UX\Chartjs\ChartjsBundle::class] = ['all' => true];
+}
+
+if (class_exists(DH\AuditorBundle\DHAuditorBundle::class)) {
+    $bundles[DH\AuditorBundle\DHAuditorBundle::class] = ['all' => true];
+}
+
 return $bundles;
