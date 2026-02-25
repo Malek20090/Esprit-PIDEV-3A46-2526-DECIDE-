@@ -19,8 +19,8 @@ security:
       user_checker: App\Security\UserChecker
 
       form_login:
-        login_path: app_login
-        check_path: app_login
+        login_path: app_login_form
+        check_path: app_login_form
         success_handler: App\Security\LoginSuccessHandler
 
       logout:
@@ -43,4 +43,5 @@ security:
     # Role-based sections
     - { path: ^/salary, roles: ROLE_SALARY }
     - { path: ^/student, roles: ROLE_ETUDIANT }
+
 
