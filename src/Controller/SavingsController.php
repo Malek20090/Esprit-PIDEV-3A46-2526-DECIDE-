@@ -556,6 +556,202 @@ class SavingsController extends AbstractController
         return (float) (round($value / $step) * $step);
     }
 
+    private function containsAssistantContributionSignal(string $message): bool
+    {
+        return preg_match('/\b(contribute|contribution|add|put|deposit|verser|ajouter|alimenter)\b/i', $message) === 1;
+    }
+
+    private function extractAssistantAmount(string $message): ?float
+    {
+        if (preg_match('/(\d+(?:[.,]\d{1,2})?)\s*(?:tnd|dt|dinar|dinars)?\b/i', $message, $m) !== 1) {
+            return null;
+        }
+
+        $amount = (float) str_replace(',', '.', (string) ($m[1] ?? '0'));
+        return $amount > 0 ? $amount : null;
+    }
+
+    private function extractAssistantGoalNameHint(string $message): ?string
+    {
+        if (preg_match('/goal\s*(?:named|name)?\s*[=:]?\s*[\'"]?([\p{L}\p{N}_\-\s]{1,80})[\'"]?/iu', $message, $m) === 1) {
+            return trim((string) ($m[1] ?? ''));
+        }
+
+        if (preg_match('/objectif\s*(?:nomm[ée]|appel[ée])?\s*[=:]?\s*[\'"]?([\p{L}\p{N}_\-\s]{1,80})[\'"]?/iu', $message, $m) === 1) {
+            return trim((string) ($m[1] ?? ''));
+        }
+
+        if (preg_match('/(?:to|for)\s+[\'"]?([\p{L}\p{N}_\-\s]{1,80})[\'"]?$/iu', trim($message), $m) === 1) {
+            return trim((string) ($m[1] ?? ''));
+        }
+
+        return null;
+    }
+
+    private function resolveAssistantGoalFromMessage(array $goals, string $message): ?array
+    {
+        $q = mb_strtolower(trim($message));
+        $hint = $this->extractAssistantGoalNameHint($message);
+        $hintLower = $hint !== null ? mb_strtolower($hint) : null;
+
+        if ($hintLower !== null && $hintLower !== '') {
+            foreach ($goals as $g) {
+                $name = mb_strtolower(trim((string) ($g['nom'] ?? '')));
+                if ($name !== '' && ($name === $hintLower || str_contains($name, $hintLower) || str_contains($hintLower, $name))) {
+                    return $g;
+                }
+            }
+        }
+
+        $best = null;
+        $bestLen = 0;
+        foreach ($goals as $g) {
+            $name = mb_strtolower(trim((string) ($g['nom'] ?? '')));
+            if ($name === '') {
+                continue;
+            }
+            if (str_contains($q, $name) && mb_strlen($name) > $bestLen) {
+                $best = $g;
+                $bestLen = mb_strlen($name);
+            }
+        }
+
+        return $best;
+    }
+
+    private function tryHandleAssistantContribution(
+        Connection $conn,
+        int $userId,
+        array $accPack,
+        string $goalAccCol,
+        string $message,
+        ValidatorInterface $validator
+    ): ?array {
+        if (!$this->containsAssistantContributionSignal($message)) {
+            return null;
+        }
+
+        $accId = (int) ($accPack['accId'] ?? 0);
+        if ($accId <= 0) {
+            return [
+                'ok' => false,
+                'reply' => "No savings account was found for your profile.",
+                'source' => 'local-action',
+                'model' => null,
+                'error' => 'NO_ACCOUNT',
+            ];
+        }
+
+        $goals = $conn->fetchAllAssociative(
+            "SELECT id, nom, montant_cible, montant_actuel
+             FROM financial_goal
+             WHERE `$goalAccCol` = :acc",
+            ['acc' => $accId]
+        );
+        if (count($goals) === 0) {
+            return [
+                'ok' => false,
+                'reply' => "You currently have no goals to contribute to.",
+                'source' => 'local-action',
+                'model' => null,
+                'error' => 'NO_GOALS',
+            ];
+        }
+
+        $amount = $this->extractAssistantAmount($message);
+        if ($amount === null) {
+            return [
+                'ok' => false,
+                'reply' => "I understood you want to contribute, but I couldn't read the amount.\nTry: \"contribute 400 TND to goal pcc\".",
+                'source' => 'local-action',
+                'model' => null,
+                'error' => 'MISSING_AMOUNT',
+            ];
+        }
+
+        $goal = $this->resolveAssistantGoalFromMessage($goals, $message);
+        if (!$goal) {
+            $names = array_map(static fn(array $g) => (string) ($g['nom'] ?? ''), array_slice($goals, 0, 6));
+            $names = array_values(array_filter($names, static fn(string $n) => trim($n) !== ''));
+            $known = count($names) ? implode(', ', $names) : 'none';
+            return [
+                'ok' => false,
+                'reply' => "I found the amount ({$amount} TND) but couldn't match the goal name.\nKnown goals: {$known}.",
+                'source' => 'local-action',
+                'model' => null,
+                'error' => 'GOAL_NOT_FOUND',
+            ];
+        }
+
+        $errs = $this->validateContribution($amount, $validator);
+        if ($errs) {
+            return [
+                'ok' => false,
+                'reply' => implode(' ', $errs),
+                'source' => 'local-action',
+                'model' => null,
+                'error' => 'INVALID_AMOUNT',
+            ];
+        }
+
+        $goalId = (int) ($goal['id'] ?? 0);
+        $before = $conn->fetchOne(
+            "SELECT montant_actuel FROM financial_goal WHERE id = :gid AND `$goalAccCol` = :acc LIMIT 1",
+            ['gid' => $goalId, 'acc' => $accId]
+        );
+
+        $this->doContributeGoal(
+            $conn,
+            $userId,
+            $accId,
+            $goalAccCol,
+            (string) $accPack['accUserCol'],
+            (string) $accPack['accBalanceCol'],
+            (string) $accPack['accPkCol'],
+            $goalId,
+            $amount
+        );
+
+        $after = $conn->fetchOne(
+            "SELECT montant_actuel FROM financial_goal WHERE id = :gid AND `$goalAccCol` = :acc LIMIT 1",
+            ['gid' => $goalId, 'acc' => $accId]
+        );
+        if ($before !== null && $after !== null && (float) $after === (float) $before) {
+            return [
+                'ok' => false,
+                'reply' => "Contribution refused: insufficient savings balance or invalid goal.",
+                'source' => 'local-action',
+                'model' => null,
+                'error' => 'CONTRIB_REFUSED',
+            ];
+        }
+
+        $newBalance = (float) $conn->fetchOne(
+            "SELECT `{$accPack['accBalanceCol']}` FROM saving_account
+             WHERE `{$accPack['accPkCol']}` = :id AND `{$accPack['accUserCol']}` = :uid LIMIT 1",
+            ['id' => $accId, 'uid' => $userId]
+        );
+
+        $target = (float) ($goal['montant_cible'] ?? 0);
+        $remaining = max(0.0, $target - (float) $after);
+        $goalName = (string) ($goal['nom'] ?? ('goal #' . $goalId));
+        $reply = sprintf(
+            "Done. Added %.2f TND to goal \"%s\".\nRemaining for this goal: %.2f TND.\nNew savings balance: %.2f TND.",
+            $amount,
+            $goalName,
+            $remaining,
+            $newBalance
+        );
+
+        return [
+            'ok' => true,
+            'reply' => $reply,
+            'source' => 'local-action',
+            'model' => null,
+            'error' => null,
+        ];
+    }
+
     private function simulateGoalTimeline(array $goalRows, float $balanceNow, float $oneTimeDeposit, float $monthlyDeposit): array
     {
         $items = [];
@@ -1449,6 +1645,24 @@ class SavingsController extends AbstractController
 
         $monthEnd = $monthStart->modify('last day of this month');
         $daysInMonth = (int) $monthStart->format('t');
+        $todayForInflation = new \DateTimeImmutable('today');
+        $inflationSnapshot = $savingsCalendarService->fetchAnnualInflationSnapshot($country);
+        $inflationSeries = is_array($inflationSnapshot['series'] ?? null) ? $inflationSnapshot['series'] : [];
+        $projectionStartYear = (int) $todayForInflation->format('Y');
+        $projectionEndYear = max((int) $monthEnd->format('Y') + 10, $projectionStartYear + 1);
+        $inflationByYear = $savingsCalendarService->buildProjectedInflationByYear(
+            $inflationSeries,
+            $projectionStartYear,
+            $projectionEndYear
+        );
+        $yearOfView = (int) $monthStart->format('Y');
+        $annualInflationRate = (float) ($inflationByYear[$yearOfView] ?? (float) ($inflationSnapshot['rate'] ?? 0.0));
+        $inflationByDate = $savingsCalendarService->buildDailyInflationMapForMonthUsingYearMap(
+            $yearOfView,
+            (int) $monthStart->format('m'),
+            $inflationByYear,
+            $annualInflationRate
+        );
 
         $dayEvents = [];
         for ($d = 1; $d <= $daysInMonth; $d++) {
@@ -1482,11 +1696,28 @@ class SavingsController extends AbstractController
             $target = (float) ($g['montant_cible'] ?? 0);
             $current = (float) ($g['montant_actuel'] ?? 0);
             $progressPct = $target > 0 ? min(100.0, ($current / $target) * 100.0) : 0.0;
+            $deadlineDt = \DateTimeImmutable::createFromFormat('Y-m-d', substr($date, 0, 10)) ?: null;
+            $adjustedTarget = $target;
+            $deadlineRate = $annualInflationRate;
+            if ($deadlineDt instanceof \DateTimeImmutable) {
+                $deadlineRate = (float) ($inflationByYear[(int) $deadlineDt->format('Y')] ?? $annualInflationRate);
+                $adjustedTarget = $savingsCalendarService->adjustAmountForInflationByYear(
+                    $target,
+                    $todayForInflation,
+                    $deadlineDt,
+                    $inflationByYear,
+                    $annualInflationRate
+                );
+            }
+            $inflationDelta = max(0.0, $adjustedTarget - $target);
 
             $dayEvents[(string) $day][] = [
                 'kind' => 'goal_deadline',
                 'title' => 'Goal deadline: ' . (string) ($g['nom'] ?? 'Goal'),
                 'amount' => $target,
+                'adjustedTarget' => round($adjustedTarget, 2),
+                'inflationDelta' => round($inflationDelta, 2),
+                'inflationRate' => round($deadlineRate, 4),
                 'progressPct' => round($progressPct, 1),
                 'priority' => (int) ($g['priorite'] ?? 3),
             ];
@@ -1556,10 +1787,6 @@ class SavingsController extends AbstractController
         // Keeps existing dayEvents intact and adds "plan_suggestion" events
         // ----------------------------
         $balance = $this->safeFloat(($accPack['currentAccount'][$accPack['accBalanceCol']] ?? 0));
-        $weatherRiskMap = $savingsCalendarService->fetchWeatherRiskMapForMonth(
-            (int) $monthStart->format('Y'),
-            (int) $monthStart->format('m')
-        );
         $fxByDate = $savingsCalendarService->fetchExchangeRateMapToTndForMonth(
             $currency,
             (int) $monthStart->format('Y'),
@@ -1601,21 +1828,20 @@ class SavingsController extends AbstractController
         $baseMonthlyNeed = $remainingTotal;
         $baseWeeklyNeed = $baseMonthlyNeed / 4.0;
 
-        $avgWeatherRisk = 0.0;
-        if (!empty($weatherRiskMap)) {
-            $avgWeatherRisk = array_sum($weatherRiskMap) / count($weatherRiskMap);
-        }
-        $weatherMode = 'balanced';
-        $weatherFactor = 1.0;
-        if ($avgWeatherRisk >= 0.65) {
-            $weatherMode = 'safe';
-            $weatherFactor = 0.90;
-        } elseif ($avgWeatherRisk <= 0.30) {
-            $weatherMode = 'aggressive';
-            $weatherFactor = 1.08;
+        $inflationMode = 'balanced';
+        $inflationFactor = 1.0;
+        if ($annualInflationRate <= 0.0) {
+            $inflationMode = 'unavailable';
+            $inflationFactor = 1.0;
+        } elseif ($annualInflationRate >= 0.08) {
+            $inflationMode = 'inflation_guard';
+            $inflationFactor = 1.12;
+        } elseif ($annualInflationRate <= 0.03) {
+            $inflationMode = 'stable_prices';
+            $inflationFactor = 0.96;
         }
 
-        $monthlyRecommendedTnd = max(0.0, $baseMonthlyNeed * $weatherFactor);
+        $monthlyRecommendedTnd = max(0.0, $baseMonthlyNeed * $inflationFactor);
         $weeklyRecommendedTnd = $monthlyRecommendedTnd / 4.0;
 
         $coverage = $monthlyRecommendedTnd > 0 ? ($balance / $monthlyRecommendedTnd) : 1.0;
@@ -1663,7 +1889,7 @@ class SavingsController extends AbstractController
                 continue;
             }
             $day = (int) substr($dateKey, 8, 2);
-            $weatherRisk = (float) ($weatherRiskMap[$dateKey] ?? $avgWeatherRisk);
+            $inflationRate = (float) ($inflationByDate[$dateKey] ?? $annualInflationRate);
             $fxForDate = (float) ($fxByDate[$dateKey] ?? $fxToTnd);
             $displayAmount = $currency === 'TND'
                 ? $perSuggestionTnd
@@ -1673,14 +1899,14 @@ class SavingsController extends AbstractController
                 'kind' => 'plan_suggestion',
                 'title' => sprintf(
                     'Suggested contribution (%s mode): %.2f %s',
-                    $weatherMode,
+                    $inflationMode,
                     $displayAmount,
                     $currency
                 ),
                 'amount' => round($perSuggestionTnd, 2),
                 'amountCurrency' => $currency,
                 'amountConverted' => round($displayAmount, 2),
-                'weatherRisk' => round($weatherRisk, 2),
+                'inflationRate' => round($inflationRate, 4),
                 'fxRateToTnd' => round($fxForDate, 4),
             ];
 
@@ -1689,7 +1915,7 @@ class SavingsController extends AbstractController
                 'amountTnd' => round($perSuggestionTnd, 2),
                 'amount' => round($displayAmount, 2),
                 'currency' => $currency,
-                'weatherRisk' => round($weatherRisk, 2),
+                'inflationRate' => round($inflationRate, 4),
             ];
         }
 
@@ -1717,7 +1943,7 @@ class SavingsController extends AbstractController
             'firstDayIso' => (int) $monthStart->format('N'),
             'daysInMonth' => $daysInMonth,
             'dayEvents' => $dayEvents,
-            'weatherRiskByDate' => $weatherRiskMap,
+            'inflationByDate' => $inflationByDate,
             'fxByDate' => $fxByDate,
             'summary' => $counts,
             'country' => $country,
@@ -1725,9 +1951,21 @@ class SavingsController extends AbstractController
                 'isFallback' => $currency !== 'TND' && empty($fxByDate),
                 'source' => 'fawazahmed0/currency-api daily snapshots; fallback frankfurter latest',
             ],
+            'inflationDataQuality' => [
+                'isFallback' => (bool) ($inflationSnapshot['isFallback'] ?? true),
+                'source' => (string) ($inflationSnapshot['source'] ?? 'unknown'),
+                'year' => $inflationSnapshot['year'] ?? null,
+                'error' => $inflationSnapshot['error'] ?? null,
+                'seriesYears' => array_slice(array_values(array_keys($inflationSeries)), -8),
+            ],
             'adaptivePlan' => [
-                'weatherMode' => $weatherMode,
-                'weatherRiskAvg' => round($avgWeatherRisk, 2),
+                'inflationMode' => $inflationMode,
+                'inflationAnnualRate' => round($annualInflationRate, 4),
+                'cpiIndicator' => 'CPI',
+                'inflationYearOfView' => $yearOfView,
+                'inflationYear' => $inflationSnapshot['year'] ?? null,
+                'inflationSource' => (string) ($inflationSnapshot['source'] ?? 'unknown'),
+                'inflationIsFallback' => (bool) ($inflationSnapshot['isFallback'] ?? true),
                 'currency' => $currency,
                 'fxRateToTnd' => round($fxToTnd, 4),
                 'monthlyRecommendedTnd' => round($monthlyRecommendedTnd, 2),
@@ -2603,7 +2841,8 @@ class SavingsController extends AbstractController
         Connection $conn,
         Security $security,
         Request $request,
-        SavingsAssistantService $assistantService
+        SavingsAssistantService $assistantService,
+        ValidatorInterface $validator
     ): JsonResponse {
         $payload = json_decode((string) $request->getContent(), true);
         if (!is_array($payload)) {
@@ -2624,6 +2863,31 @@ class SavingsController extends AbstractController
         }
 
         $userId = $this->resolveUserId($conn, $security, $request);
+        $accPack = $this->getOrCreateCurrentAccount($conn, $userId);
+        $goalAccCol = $this->goalAccountFkColumn($conn);
+
+        $actionResult = $this->tryHandleAssistantContribution(
+            $conn,
+            $userId,
+            $accPack,
+            $goalAccCol,
+            $message,
+            $validator
+        );
+        if ($actionResult !== null) {
+            return new JsonResponse([
+                'ok' => (bool) ($actionResult['ok'] ?? false),
+                'reply' => (string) ($actionResult['reply'] ?? ''),
+                'source' => (string) ($actionResult['source'] ?? 'local-action'),
+                'model' => null,
+                'error' => $actionResult['error'] ?? null,
+                'dbContext' => [
+                    'balanceNow' => (float) ($accPack['currentAccount'][$accPack['accBalanceCol']] ?? 0),
+                    'goalsAtRisk' => 0,
+                ],
+            ], (bool) ($actionResult['ok'] ?? false) ? 200 : 422);
+        }
+
         $ctx = $this->buildAssistantDbContext($conn, $userId);
         $result = $assistantService->chat($ctx, $message, $history);
 

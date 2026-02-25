@@ -23,19 +23,13 @@ class ExpenseAnomalyAIService
             return false;
         }
 
-        $overall = $this->expenseRepository->getExpenseStats(
-            $expense->getUser(),
-            null,
-            $expense->getId()
-        );
         $category = $this->expenseRepository->getExpenseStats(
             $expense->getUser(),
             $expense->getCategory(),
             $expense->getId()
         );
 
-        return $this->isAboveThreshold($expense, $overall)
-            || $this->isAboveThreshold($expense, $category);
+        return $this->isAboveThreshold($expense, $category);
     }
 
     /**
@@ -47,21 +41,13 @@ class ExpenseAnomalyAIService
             return 0.0;
         }
 
-        $overall = $this->expenseRepository->getExpenseStats(
-            $expense->getUser(),
-            null,
-            $expense->getId()
-        );
         $category = $this->expenseRepository->getExpenseStats(
             $expense->getUser(),
             $expense->getCategory(),
             $expense->getId()
         );
 
-        $overallScore = $this->zScore($expense, $overall);
-        $categoryScore = $this->zScore($expense, $category);
-
-        return max($overallScore, $categoryScore);
+        return $this->zScore($expense, $category);
     }
 
     private function isAboveThreshold(Expense $expense, array $stats): bool

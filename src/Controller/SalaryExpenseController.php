@@ -16,6 +16,7 @@ use App\Service\ExpenseCategorySuggestionService;
 use App\Service\RecurringPatternService;
 use App\Service\FinancialMonitoringService;
 use App\Service\SalaryExpenseAiService;
+use App\Service\FinancialAlertMailerService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -629,6 +630,37 @@ class SalaryExpenseController extends AbstractController
             $entityManager->flush();
             $this->addFlash('success', 'Depense supprimee.');
         }
+
+        return $this->redirectToRoute('app_salary_expense_index');
+    }
+
+    #[Route('/test-mail', name: 'test_mail', methods: ['GET'])]
+    public function testMail(FinancialAlertMailerService $mailer, \Psr\Log\LoggerInterface $logger): Response
+    {
+        try {
+            $mailer->sendOverspendingAlert(1000.0, 1200.0);
+            $mailer->sendMonthlySummary(1000.0, 1200.0, -200.0);
+            $this->addFlash('success', 'Test emails sent. Check your inbox/spam.');
+        } catch (\Throwable $exception) {
+            $logger->error('Test mail failed.', [
+                'exception' => $exception->getMessage(),
+            ]);
+            $this->addFlash('error', 'Test mail failed: ' . $exception->getMessage());
+        }
+
+        return $this->redirectToRoute('app_salary_expense_index');
+    }
+
+    #[Route('/reset-mail-cache', name: 'reset_mail_cache', methods: ['GET'])]
+    public function resetMailCache(FinancialMonitoringService $monitoringService): Response
+    {
+        $user = $this->getUser();
+        if (!$user) {
+            return $this->redirectToRoute('app_login');
+        }
+
+        $monitoringService->clearAlertCache($user);
+        $this->addFlash('success', 'Mail cache cleared. Alerts can be sent again.');
 
         return $this->redirectToRoute('app_salary_expense_index');
     }
