@@ -61,6 +61,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(mappedBy: 'user', targetEntity: Quiz::class)]
     private Collection $quizzes;
 
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: Reclamation::class, cascade: ['remove'])]
+    private Collection $reclamations;
+
     #[ORM\Column(length: 255, nullable: true)]
     #[Assert\Length(max: 255, maxMessage: 'Image path cannot exceed 255 characters.')]
     private ?string $image = null;
@@ -86,11 +89,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $emailVerifiedAt = null;
 
+    #[ORM\Column(options: ['default' => false])]
+    private bool $isBlocked = false;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $blockedReason = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $blockedAt = null;
+
     public function __construct()
     {
         $this->transactions = new ArrayCollection();
         $this->revenues = new ArrayCollection();
         $this->quizzes = new ArrayCollection();
+        $this->reclamations = new ArrayCollection();
         $this->dateInscription = new \DateTime('today');
     }
 
@@ -267,6 +280,39 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    public function isBlocked(): bool
+    {
+        return $this->isBlocked;
+    }
+
+    public function setIsBlocked(bool $isBlocked): self
+    {
+        $this->isBlocked = $isBlocked;
+        return $this;
+    }
+
+    public function getBlockedReason(): ?string
+    {
+        return $this->blockedReason;
+    }
+
+    public function setBlockedReason(?string $blockedReason): self
+    {
+        $this->blockedReason = $blockedReason;
+        return $this;
+    }
+
+    public function getBlockedAt(): ?\DateTimeImmutable
+    {
+        return $this->blockedAt;
+    }
+
+    public function setBlockedAt(?\DateTimeImmutable $blockedAt): self
+    {
+        $this->blockedAt = $blockedAt;
+        return $this;
+    }
+
     /* ================= TRANSACTIONS ================= */
 
     /**
@@ -388,5 +434,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         } else {
             return 'User #' . $this->id;
         }
+    }
+
+    /**
+     * @return Collection<int, Reclamation>
+     */
+    public function getReclamations(): Collection
+    {
+        return $this->reclamations;
     }
 }
