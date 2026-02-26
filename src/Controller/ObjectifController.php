@@ -247,7 +247,8 @@ public function showAiReport(AiObjectiveReport $report): Response
 #[Route('/objectifs/{id}/simulation', name: 'objectif_simulation')]
 public function simulation(
     Objectif $objectif,
-    MonteCarloSimulationService $simulationService
+    MonteCarloSimulationService $simulationService,
+    ChartBuilderInterface $chartBuilder
 ): Response {
 
     // 🔐 Sécurité (même logique que pour l'IA)
@@ -261,9 +262,161 @@ public function simulation(
 
     $result = $simulationService->simulate($objectif);
 
+    // Calculate histogram bins from simulation values
+    $histogramData = $this->calculateHistogramBins($result['values'], $result['target']);
+
+    // Create BAR chart for histogram
+    $chart = $chartBuilder->createChart(Chart::TYPE_BAR);
+    
+    $chart->setData([
+        'labels' => $histogramData['labels'],
+        'datasets' => [
+            [
+                'label' => 'Frequency',
+                'data' => $histogramData['frequencies'],
+                'backgroundColor' => 'rgba(54, 162, 235, 0.6)',
+                'borderColor' => 'rgba(54, 162, 235, 1)',
+                'borderWidth' => 1,
+            ],
+        ],
+    ]);
+
+    // Add target line as a separate dataset using a line chart overlay
+    $targetLineData = array_fill(0, count($histogramData['frequencies']), null);
+    $targetLineData[$histogramData['targetBinIndex']] = max($histogramData['frequencies']) * 1.1;
+    
+    $chart->setData([
+        'labels' => $histogramData['labels'],
+        'datasets' => [
+            [
+                'type' => 'bar',
+                'label' => 'Frequency',
+                'data' => $histogramData['frequencies'],
+                'backgroundColor' => 'rgba(54, 162, 235, 0.6)',
+                'borderColor' => 'rgba(54, 162, 235, 1)',
+                'borderWidth' => 1,
+                'order' => 2,
+            ],
+            [
+                'type' => 'line',
+                'label' => 'Target: $' . number_format($result['target'], 0),
+                'data' => $targetLineData,
+                'borderColor' => 'rgba(255, 99, 132, 1)',
+                'backgroundColor' => 'rgba(255, 99, 132, 0.2)',
+                'borderWidth' => 3,
+                'pointRadius' => 8,
+                'pointBackgroundColor' => 'rgba(255, 99, 132, 1)',
+                'fill' => false,
+                'tension' => 0,
+                'order' => 1,
+            ],
+        ],
+    ]);
+
+    $chart->setOptions([
+        'responsive' => true,
+        'plugins' => [
+            'legend' => [
+                'display' => true,
+                'position' => 'top',
+            ],
+            'title' => [
+                'display' => true,
+                'text' => 'Monte Carlo Simulation - Distribution of Final Values',
+            ],
+        ],
+        'scales' => [
+            'x' => [
+                'title' => [
+                    'display' => true,
+                    'text' => 'Value Range ($)',
+                ],
+            ],
+            'y' => [
+                'beginAtZero' => true,
+                'title' => [
+                    'display' => true,
+                    'text' => 'Frequency (Count)',
+                ],
+            ],
+        ],
+    ]);
+
     return $this->render('objectif/simulation.html.twig', [
         'objectif' => $objectif,
-        'result' => $result
+        'result' => $result,
+        'chart' => $chart,
     ]);
+}
+
+/**
+ * Calculate histogram bins from simulation values
+ * 
+ * @param array $values Array of final simulation results
+ * @param float $target Target value for the objective
+ * @return array Array with labels, frequencies, and targetBinIndex
+ */
+private function calculateHistogramBins(array $values, float $target): array
+{
+    if (empty($values)) {
+        return [
+            'labels' => [],
+            'frequencies' => [],
+            'targetBinIndex' => 0,
+        ];
+    }
+
+    $min = min($values);
+    $max = max($values);
+    
+    // Use fixed number of bins for histogram
+    $numBins = 15;
+    
+    // Calculate bin width
+    $range = $max - $min;
+    $binWidth = $range > 0 ? $range / $numBins : 1;
+    
+    // Ensure bin width is meaningful
+    if ($binWidth < 1) {
+        $binWidth = 1;
+    }
+    
+    // Initialize bins
+    $bins = array_fill(0, $numBins, 0);
+    $binLabels = [];
+    
+    // Create bin labels and populate bins
+    for ($i = 0; $i < $numBins; $i++) {
+        $binStart = $min + ($i * $binWidth);
+        $binEnd = $binStart + $binWidth;
+        
+        // Format labels nicely
+        $binLabels[] = number_format($binStart, 0) . '-' . number_format($binEnd, 0);
+    }
+    
+    // Populate bins with values
+    foreach ($values as $value) {
+        $binIndex = floor(($value - $min) / $binWidth);
+        // Handle edge case where value equals max
+        if ($binIndex >= $numBins) {
+            $binIndex = $numBins - 1;
+        }
+        $bins[$binIndex]++;
+    }
+    
+    // Find which bin contains the target value
+    $targetBinIndex = 0;
+    if ($target >= $min && $target <= $max) {
+        $targetBinIndex = floor(($target - $min) / $binWidth);
+        if ($targetBinIndex >= $numBins) {
+            $targetBinIndex = $numBins - 1;
+        }
+    }
+    
+    return [
+        'labels' => $binLabels,
+        'frequencies' => $bins,
+        'targetBinIndex' => $targetBinIndex,
+    ];
 }
 }

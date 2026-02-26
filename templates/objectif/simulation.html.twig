@@ -10,10 +10,13 @@
       <h2>🔮 Monte Carlo Simulation</h2>
       <p><strong>Objectif :</strong> {{ objectif.name }}</p>
 
+
+
+      {# Statistics Section #}
       <div style="margin-top:20px; font-size:18px;">
 
         <p>🎯 <strong>Probability of Success:</strong>
-          <span style="font-weight:bold; color:
+          <span style="font-weight: bold; color:
             {% if result.probability > 70 %}
               #16a34a
             {% elseif result.probability > 40 %}
@@ -26,10 +29,23 @@
           </span>
         </p>
 
-        <p>📈 <strong>Best Case:</strong> ${{ result.bestCase }}</p>
-        <p>📉 <strong>Worst Case:</strong> ${{ result.worstCase }}</p>
+        <p>📈 <strong>Best Case:</strong> ${{ result.bestCase|number_format(2) }}</p>
+        <p>📉 <strong>Worst Case:</strong> ${{ result.worstCase|number_format(2) }}</p>
+        <p>🎯 <strong>Target Amount:</strong> ${{ result.target|number_format(2) }}</p>
 
       </div>
+            {# Chart Section #}
+      {% if chart is defined %}
+        <div style="margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+          {{ render_chart(chart) }}
+        </div>
+        
+        {# Target indicator legend #}
+        <div style="margin-bottom: 20px; padding: 10px; background: rgba(255,99,132,0.1); border-left: 3px solid rgba(255,99,132,1); border-radius: 4px;">
+          <span style="color: rgba(255,99,132,1); font-weight: bold;">Target:</span> 
+          ${{ result.target|number_format(0) }} (shown as red line on chart)
+        </div>
+      {% endif %}
 
       <div style="margin-top:20px;">
         <a href="{{ path('objectif_index') }}" class="ghost-btn">

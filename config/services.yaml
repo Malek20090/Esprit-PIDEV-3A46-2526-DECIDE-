@@ -11,6 +11,7 @@ parameters:
     openai_model_default: 'gpt-4o-mini'
     facepp_base_url: '%env(string:FACEPP_API_BASE_URL)%'
     facepp_min_confidence: '%env(float:FACEPP_MIN_CONFIDENCE)%'
+    GOOGLE_AI_API_KEY: '%env(GOOGLE_AI_API_KEY)%'
     expense_anomaly_sensitivity: 2.5
     expense_anomaly_min_amount: 400
 services:
@@ -59,3 +60,4 @@ services:
         arguments:
             $sensitivity: '%expense_anomaly_sensitivity%'
             $minAmount: '%expense_anomaly_min_amount%'
+    
