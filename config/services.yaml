@@ -9,6 +9,8 @@ parameters:
     google_ai_model_default: 'gemini-2.5-flash'
     openai_api_key_default: ''
     openai_model_default: 'gpt-4o-mini'
+    pdfshift_api_key_default: ''
+    pdfshift_processor_version_default: '142'
     facepp_base_url: '%env(string:FACEPP_API_BASE_URL)%'
     facepp_min_confidence: '%env(float:FACEPP_MIN_CONFIDENCE)%'
     GOOGLE_AI_API_KEY: '%env(GOOGLE_AI_API_KEY)%'
@@ -49,6 +51,15 @@ services:
         arguments:
             $openAiApiKey: '%env(default:openai_api_key_default:OPENAI_API_KEY)%'
             $openAiModel: '%env(default:openai_model_default:OPENAI_MODEL)%'
+
+    App\Service\PdfShiftService:
+        arguments:
+            $apiKey: '%env(default:pdfshift_api_key_default:PDFSHIFT_API_KEY)%'
+            $processorVersion: '%env(default:pdfshift_processor_version_default:PDFSHIFT_PROCESSOR_VERSION)%'
+
+    App\Service\WhatIfAiNarratorService:
+        arguments:
+            $cache: '@cache.app'
 
     App\Service\FacePlusPlusService:
         arguments:

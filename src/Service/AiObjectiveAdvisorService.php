@@ -149,12 +149,13 @@ private function askAi(string $prompt): string
 
     return $data['choices'][0]['message']['content'] ?? 'No response';
 }
-private function extractRiskScore(string $response): ?int
-    {
-        if (preg_match('/Risk Score:\s*(\d+)/i', $response, $matches)) {
-            return (int) $matches[1];
-        }
 
-        return null;
+private function extractRiskScore(string $response): ?int
+{
+    if (preg_match('/Risk Score:\s*(\d+)/i', $response, $matches)) {
+        return (int) $matches[1];
     }
+
+    return null;
+}
 }
