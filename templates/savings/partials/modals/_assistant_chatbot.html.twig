@@ -1,26 +1,28 @@
 <div id="smartBotRoot" class="smartbot-root" aria-live="polite">
   <button id="smartBotToggle" class="smartbot-toggle" type="button">
     <span class="smartbot-dot"></span>
-    <span>AI Coach</span>
+    <span>Savings &amp; Goals Assistant</span>
   </button>
 
   <div id="smartBotPanel" class="smartbot-panel" style="display:none;">
     <div class="smartbot-head">
       <div>
-        <div class="smartbot-title">Smart Assistant Chatbot</div>
-        <div class="smartbot-state">DB-aware + Any-topic Q&A</div>
+        <div class="smartbot-title">Savings &amp; Goals Assistant</div>
+        <div class="smartbot-state">Action Assistant</div>
       </div>
       <button id="smartBotClose" class="smartbot-close" type="button">x</button>
     </div>
-    <div class="smartbot-sub">Ask anything: your database insights, coding, writing, study, or finance questions.</div>
+    <div class="smartbot-sub">Ask questions, manage goals/accounts, and record contributions. Type <b>/help</b> to see all commands.</div>
 
     <div id="smartBotSuggestions" class="smartbot-suggestions"></div>
     <div id="smartBotMessages" class="smartbot-messages"></div>
 
     <form id="smartBotForm" class="smartbot-form">
       <input id="smartBotInput" class="smartbot-input" type="text" placeholder="Ask your question..." maxlength="800">
+      <button id="smartBotMic" class="smartbot-mic" type="button" title="Voice input" aria-label="Voice input">🎤</button>
       <button class="smartbot-send" type="submit">Send</button>
     </form>
+    <div id="smartBotVoiceState" class="smartbot-voice-state" aria-live="polite"></div>
   </div>
 </div>
 
@@ -192,6 +194,26 @@
     color: #fff;
     background: #0ea5e9;
   }
+  .smartbot-mic {
+    border: 1px solid #cfe0f0;
+    border-radius: 10px;
+    padding: 9px 10px;
+    font-weight: 700;
+    color: #173956;
+    background: #f3f9ff;
+    min-width: 42px;
+  }
+  .smartbot-mic.listening {
+    color: #fff;
+    background: #ef4444;
+    border-color: #ef4444;
+  }
+  .smartbot-voice-state {
+    min-height: 18px;
+    padding: 0 12px 8px;
+    color: #5d7e99;
+    font-size: .76rem;
+  }
   @media (max-width: 820px) {
     .smartbot-root {
       right: 10px;
@@ -219,9 +241,47 @@
   const suggestions = document.getElementById('smartBotSuggestions');
   const form = document.getElementById('smartBotForm');
   const input = document.getElementById('smartBotInput');
-  if (!root || !toggle || !panel || !close || !list || !suggestions || !form || !input) return;
+  const micBtn = document.getElementById('smartBotMic');
+  const voiceState = document.getElementById('smartBotVoiceState');
+  if (!root || !toggle || !panel || !close || !list || !suggestions || !form || !input || !micBtn || !voiceState) return;
 
   const history = [];
+  const placeholderSamples = [
+    'What goals do I have?',
+    'Create a goal called laptop target 3000 deadline 2026-09-01 priority P2',
+    'Contribute 200 TND to car',
+    'Rename goal pcc to course',
+    'Show my last 5 savings transactions',
+    'Undo last contribution',
+  ];
+  let placeholderIndex = 0;
+  let placeholderTimer = null;
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let isListening = false;
+  let manualStopRequested = false;
+
+  function normalizeVoiceText(text) {
+    const raw = String(text || '').trim().toLowerCase();
+    if (!raw) return '';
+    return raw
+      .replace(/\bgirls\b/g, 'goals')
+      .replace(/\bgirl\b/g, 'goal')
+      .replace(/\bsavings least\b/g, 'savings list')
+      .replace(/\bsaveings\b/g, 'savings')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function setVoiceState(text) {
+    voiceState.textContent = text || '';
+  }
+
+  function rotatePlaceholder() {
+    if (document.activeElement === input || input.value.trim() !== '') return;
+    input.placeholder = placeholderSamples[placeholderIndex % placeholderSamples.length];
+    placeholderIndex += 1;
+  }
 
   function pushMsg(role, text, meta = '') {
     const bubble = document.createElement('div');
@@ -300,12 +360,88 @@
     }
   }
 
+  function initVoiceInput() {
+    if (!SpeechRecognition) {
+      micBtn.disabled = true;
+      setVoiceState('Voice input is not supported in this browser.');
+      return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.lang = (navigator.language || 'en-US');
+    recognition.interimResults = true;
+    recognition.continuous = true;
+
+    recognition.onstart = () => {
+      isListening = true;
+      manualStopRequested = false;
+      micBtn.classList.add('listening');
+      setVoiceState('Listening...');
+    };
+
+    recognition.onresult = (event) => {
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript || '';
+      }
+      transcript = transcript.trim();
+      if (transcript !== '') {
+        input.value = normalizeVoiceText(transcript);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      const code = event && event.error ? event.error : 'unknown';
+      setVoiceState(code === 'not-allowed'
+        ? 'Microphone access denied.'
+        : 'Voice recognition error. Try again.');
+    };
+
+    recognition.onend = () => {
+      isListening = false;
+      micBtn.classList.remove('listening');
+      if (manualStopRequested) {
+        if (input.value.trim() !== '') {
+          setVoiceState('Voice captured.');
+        } else {
+          setVoiceState('Voice input stopped.');
+        }
+        return;
+      }
+      // Keep listening until user explicitly presses mic again.
+      try {
+        recognition.start();
+      } catch (e) {
+        setVoiceState('Voice input restarted failed. Press mic to retry.');
+      }
+    };
+
+    micBtn.addEventListener('click', () => {
+      if (!recognition) return;
+      if (isListening) {
+        manualStopRequested = true;
+        recognition.stop();
+        return;
+      }
+      try {
+        manualStopRequested = false;
+        recognition.start();
+      } catch (e) {
+        setVoiceState('Unable to start voice input.');
+      }
+    });
+  }
+
   toggle.addEventListener('click', () => {
     const opening = panel.style.display === 'none';
     panel.style.display = opening ? 'flex' : 'none';
     if (opening && list.children.length === 0) {
-      pushMsg('bot', 'Hi. Ask me any question. I can use your savings/goals data when needed, and handle general topics too.');
+      pushMsg('bot', 'Hi. I can answer Savings & Goals questions and execute actions (CRUD + contributions). Type /help for all commands.');
       loadSuggestions();
+      rotatePlaceholder();
+      if (!placeholderTimer) {
+        placeholderTimer = window.setInterval(rotatePlaceholder, 2800);
+      }
     }
   });
   close.addEventListener('click', () => panel.style.display = 'none');
@@ -317,5 +453,8 @@
     input.value = '';
     ask(message);
   });
+
+  initVoiceInput();
+  rotatePlaceholder();
 })();
 </script>

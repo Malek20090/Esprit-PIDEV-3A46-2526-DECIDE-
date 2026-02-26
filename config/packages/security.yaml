@@ -42,10 +42,11 @@ security:
     - { path: ^/admin/reclamations, roles: ROLE_ADMIN }
 
     # Admin area
+    - { path: ^/admin, roles: ROLE_ADMIN }
     - { path: ^/transaction, roles: ROLE_ADMIN }
     - { path: ^/user, roles: ROLE_ADMIN }
 
     # Role-based sections
     - { path: ^/salary, roles: ROLE_SALARY }
     - { path: ^/student, roles: ROLE_ETUDIANT }
-
+    - { path: ^/certification, roles: ROLE_ETUDIANT }
