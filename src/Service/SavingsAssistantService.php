@@ -1195,6 +1195,9 @@ class SavingsAssistantService
         $name = null;
         if (preg_match('/called\s+([a-z0-9 _-]+)/i', $q, $m) === 1) {
             $name = trim((string) $m[1]);
+            // Keep only the goal name if the prompt inlines other fields after it
+            $name = preg_replace('/\s+(target|montant|amount|tnd|deadline|date|priorite|priority)\b.*$/i', '', $name);
+            $name = trim((string) $name);
         }
         $target = $this->extractAmount($q);
         $deadline = $this->extractDate($q);

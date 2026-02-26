@@ -58,7 +58,12 @@ class SavingsStatsService
             $type = (string) ($t['type'] ?? '');
             $desc = (string) ($t['description'] ?? '');
             $m = (float) ($t['montant'] ?? 0);
-            $dt = (string) ($t['date'] ?? '');
+            $dtRaw = $t['date'] ?? '';
+            if ($dtRaw instanceof \DateTimeInterface) {
+                $dt = $dtRaw->format('Y-m-d');
+            } else {
+                $dt = (string) $dtRaw;
+            }
 
             $dayKey = $dt ? substr($dt, 0, 10) : 'Unknown';
             $monthKey = $dt ? substr($dt, 0, 7) : 'Unknown';
