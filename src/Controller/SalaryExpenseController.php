@@ -76,6 +76,7 @@ class SalaryExpenseController extends AbstractController
         ));
         $expenses = array_values($expenses);
         $expenseStats = $expenseStatisticsService->build($expenses, $selectedMonth);
+        $aiInsights = $salaryExpenseAiService->buildInsights($revenues, $expenses);
         $monthlyAdvice = $salaryExpenseAiService->buildMonthlyExpenseAdvice(
             $expenseStats['months'],
             $expenseStats['selected_month']
@@ -438,6 +439,7 @@ class SalaryExpenseController extends AbstractController
             'totalsRevenueMonths' => $totalsRevenueMonths,
             'totalsExpenseMonths' => $totalsExpenseMonths,
             'expenseStats' => $expenseStats,
+            'aiInsights' => $aiInsights,
             'monthlyAdvice' => $monthlyAdvice,
             'recurringSuggestions' => $recurringSuggestions,
             'recurringRules' => $recurringRules,
