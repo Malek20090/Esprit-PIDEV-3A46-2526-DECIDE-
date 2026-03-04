@@ -10,7 +10,7 @@ use Doctrine\Migrations\AbstractMigration;
 /**
  * Auto-generated Migration: Please modify to your needs!
  */
-final class Version20260226034429 extends AbstractMigration
+final class Version20260304200421 extends AbstractMigration
 {
     public function getDescription(): string
     {
@@ -39,7 +39,8 @@ final class Version20260226034429 extends AbstractMigration
         $this->addSql('CREATE TABLE revenue (id INT AUTO_INCREMENT NOT NULL, user_id INT NOT NULL, amount DOUBLE PRECISION NOT NULL, type VARCHAR(20) NOT NULL, received_at DATE NOT NULL, description VARCHAR(255) DEFAULT NULL, created_at DATETIME NOT NULL, INDEX IDX_E9116C85A76ED395 (user_id), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
         $this->addSql('CREATE TABLE saving_account (id INT AUTO_INCREMENT NOT NULL, user_id INT NOT NULL, sold DOUBLE PRECISION DEFAULT NULL, date_creation DATE DEFAULT NULL, taux_interet DOUBLE PRECISION DEFAULT NULL, INDEX IDX_EF4ED035A76ED395 (user_id), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
         $this->addSql('CREATE TABLE transaction (id INT AUTO_INCREMENT NOT NULL, user_id INT NOT NULL, expense_id INT DEFAULT NULL, type VARCHAR(30) NOT NULL, montant DOUBLE PRECISION NOT NULL, date DATE NOT NULL, description LONGTEXT DEFAULT NULL, module_source VARCHAR(50) DEFAULT NULL, INDEX IDX_723705D1A76ED395 (user_id), INDEX IDX_723705D1F395DB7B (expense_id), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
-        $this->addSql('CREATE TABLE user (id INT AUTO_INCREMENT NOT NULL, nom VARCHAR(100) DEFAULT NULL, email VARCHAR(180) NOT NULL, password VARCHAR(255) NOT NULL, roles JSON NOT NULL, date_inscription DATE DEFAULT NULL, solde_total DOUBLE PRECISION NOT NULL, image VARCHAR(255) DEFAULT NULL, face_id_credential_id VARCHAR(255) DEFAULT NULL, face_id_enabled TINYINT(1) NOT NULL, face_plus_token VARCHAR(255) DEFAULT NULL, face_plus_enabled TINYINT(1) NOT NULL, email_verified TINYINT(1) DEFAULT 0 NOT NULL, email_verification_token VARCHAR(64) DEFAULT NULL, email_verified_at DATETIME DEFAULT NULL COMMENT \'(DC2Type:datetime_immutable)\', is_blocked TINYINT(1) DEFAULT 0 NOT NULL, blocked_reason VARCHAR(255) DEFAULT NULL, blocked_at DATETIME DEFAULT NULL COMMENT \'(DC2Type:datetime_immutable)\', UNIQUE INDEX UNIQ_8D93D649E7927C74 (email), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
+        $this->addSql('CREATE TABLE user (id INT AUTO_INCREMENT NOT NULL, nom VARCHAR(100) DEFAULT NULL, email VARCHAR(180) NOT NULL, password VARCHAR(255) NOT NULL, roles JSON NOT NULL, date_inscription DATE DEFAULT NULL, solde_total DOUBLE PRECISION NOT NULL, image VARCHAR(255) DEFAULT NULL, face_id_credential_id VARCHAR(255) DEFAULT NULL, face_id_enabled TINYINT(1) NOT NULL, face_plus_token VARCHAR(255) DEFAULT NULL, face_plus_enabled TINYINT(1) NOT NULL, email_verified TINYINT(1) DEFAULT 0 NOT NULL, email_verification_token VARCHAR(64) DEFAULT NULL, email_verified_at DATETIME DEFAULT NULL COMMENT \'(DC2Type:datetime_immutable)\', is_blocked TINYINT(1) DEFAULT 0 NOT NULL, blocked_reason VARCHAR(255) DEFAULT NULL, blocked_at DATETIME DEFAULT NULL COMMENT \'(DC2Type:datetime_immutable)\', geo_country_code VARCHAR(8) DEFAULT NULL, geo_country_name VARCHAR(120) DEFAULT NULL, geo_region_name VARCHAR(120) DEFAULT NULL, geo_city_name VARCHAR(120) DEFAULT NULL, geo_detected_ip VARCHAR(45) DEFAULT NULL, geo_vpn_suspected TINYINT(1) DEFAULT 0 NOT NULL, geo_last_checked_at DATETIME DEFAULT NULL COMMENT \'(DC2Type:datetime_immutable)\', UNIQUE INDEX UNIQ_8D93D649E7927C74 (email), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
+        $this->addSql('CREATE TABLE user_behavior_profile (id INT AUTO_INCREMENT NOT NULL, user_id INT NOT NULL, score INT NOT NULL, profile_type VARCHAR(60) NOT NULL, strengths JSON NOT NULL, weaknesses JSON NOT NULL, next_actions JSON NOT NULL, updated_at DATETIME NOT NULL COMMENT \'(DC2Type:datetime_immutable)\', UNIQUE INDEX UNIQ_BC7D64DCA76ED395 (user_id), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
         $this->addSql('CREATE TABLE user_notification (id INT AUTO_INCREMENT NOT NULL, user_id INT NOT NULL, title VARCHAR(160) NOT NULL, message LONGTEXT NOT NULL, status VARCHAR(20) NOT NULL, is_read TINYINT(1) NOT NULL, created_at DATETIME NOT NULL COMMENT \'(DC2Type:datetime_immutable)\', INDEX IDX_3F980AC8A76ED395 (user_id), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
         $this->addSql('CREATE TABLE messenger_messages (id BIGINT AUTO_INCREMENT NOT NULL, body LONGTEXT NOT NULL, headers LONGTEXT NOT NULL, queue_name VARCHAR(190) NOT NULL, created_at DATETIME NOT NULL COMMENT \'(DC2Type:datetime_immutable)\', available_at DATETIME NOT NULL COMMENT \'(DC2Type:datetime_immutable)\', delivered_at DATETIME DEFAULT NULL COMMENT \'(DC2Type:datetime_immutable)\', INDEX IDX_75EA56E0FB7336F0E3BD61CE16BA31DBBF396750 (queue_name, available_at, delivered_at, id), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
         $this->addSql('ALTER TABLE ai_objective_report ADD CONSTRAINT FK_62190510157D1AD4 FOREIGN KEY (objectif_id) REFERENCES objectif (id)');
@@ -66,6 +67,7 @@ final class Version20260226034429 extends AbstractMigration
         $this->addSql('ALTER TABLE saving_account ADD CONSTRAINT FK_EF4ED035A76ED395 FOREIGN KEY (user_id) REFERENCES user (id)');
         $this->addSql('ALTER TABLE transaction ADD CONSTRAINT FK_723705D1A76ED395 FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE');
         $this->addSql('ALTER TABLE transaction ADD CONSTRAINT FK_723705D1F395DB7B FOREIGN KEY (expense_id) REFERENCES expense (id) ON DELETE CASCADE');
+        $this->addSql('ALTER TABLE user_behavior_profile ADD CONSTRAINT FK_BC7D64DCA76ED395 FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE');
         $this->addSql('ALTER TABLE user_notification ADD CONSTRAINT FK_3F980AC8A76ED395 FOREIGN KEY (user_id) REFERENCES user (id)');
     }
 
@@ -96,6 +98,7 @@ final class Version20260226034429 extends AbstractMigration
         $this->addSql('ALTER TABLE saving_account DROP FOREIGN KEY FK_EF4ED035A76ED395');
         $this->addSql('ALTER TABLE transaction DROP FOREIGN KEY FK_723705D1A76ED395');
         $this->addSql('ALTER TABLE transaction DROP FOREIGN KEY FK_723705D1F395DB7B');
+        $this->addSql('ALTER TABLE user_behavior_profile DROP FOREIGN KEY FK_BC7D64DCA76ED395');
         $this->addSql('ALTER TABLE user_notification DROP FOREIGN KEY FK_3F980AC8A76ED395');
         $this->addSql('DROP TABLE ai_objective_report');
         $this->addSql('DROP TABLE cas_relles');
@@ -117,6 +120,7 @@ final class Version20260226034429 extends AbstractMigration
         $this->addSql('DROP TABLE saving_account');
         $this->addSql('DROP TABLE transaction');
         $this->addSql('DROP TABLE user');
+        $this->addSql('DROP TABLE user_behavior_profile');
         $this->addSql('DROP TABLE user_notification');
         $this->addSql('DROP TABLE messenger_messages');
     }
