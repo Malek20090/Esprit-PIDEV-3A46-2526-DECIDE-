@@ -30,114 +30,85 @@ final class UserControllerTest extends WebTestCase
 
     public function testIndex(): void
     {
-        $this->client->followRedirects();
-        $crawler = $this->client->request('GET', $this->path);
+        $this->loginAsAdmin();
+        $this->client->request('GET', $this->path);
 
         self::assertResponseStatusCodeSame(200);
-        self::assertPageTitleContains('User index');
-
-        // Use the $crawler to perform additional assertions e.g.
-        // self::assertSame('Some text on the page', $crawler->filter('.p')->first()->text());
+        self::assertPageTitleContains('Users');
+        self::assertSelectorTextContains('h1', 'Users');
     }
 
     public function testNew(): void
     {
-        $this->markTestIncomplete();
-        $this->client->request('GET', sprintf('%snew', $this->path));
+        $this->loginAsAdmin();
 
+        $this->client->request('GET', $this->path . 'new');
         self::assertResponseStatusCodeSame(200);
-
-        $this->client->submitForm('Save', [
-            'user[nom]' => 'Testing',
-            'user[email]' => 'Testing',
-            'user[password]' => 'Testing',
-            'user[role]' => 'Testing',
-            'user[dateInscription]' => 'Testing',
-            'user[soldeTotal]' => 'Testing',
-        ]);
-
-        self::assertResponseRedirects($this->path);
-
-        self::assertSame(1, $this->userRepository->count([]));
+        self::assertPageTitleContains('New User');
+        self::assertSelectorExists('form[name="user"]');
     }
 
     public function testShow(): void
     {
-        $this->markTestIncomplete();
-        $fixture = new User();
-        $fixture->setNom('My Title');
-        $fixture->setEmail('My Title');
-        $fixture->setPassword('My Title');
-        $fixture->setRole('My Title');
-        $fixture->setDateInscription('My Title');
-        $fixture->setSoldeTotal('My Title');
+        $this->loginAsAdmin();
+        $targetUser = $this->createUser('show.user@example.com', ['ROLE_SALARY'], 'Show User');
 
-        $this->manager->persist($fixture);
-        $this->manager->flush();
-
-        $this->client->request('GET', sprintf('%s%s', $this->path, $fixture->getId()));
+        $this->client->request('GET', sprintf('%s%d', $this->path, $targetUser->getId()));
 
         self::assertResponseStatusCodeSame(200);
-        self::assertPageTitleContains('User');
-
-        // Use assertions to check that the properties are properly displayed.
+        self::assertPageTitleContains('User #' . $targetUser->getId());
+        self::assertSelectorTextContains('h1', 'User Profile #' . $targetUser->getId());
     }
 
     public function testEdit(): void
     {
-        $this->markTestIncomplete();
-        $fixture = new User();
-        $fixture->setNom('Value');
-        $fixture->setEmail('Value');
-        $fixture->setPassword('Value');
-        $fixture->setRole('Value');
-        $fixture->setDateInscription('Value');
-        $fixture->setSoldeTotal('Value');
+        $this->loginAsAdmin();
+        $targetUser = $this->createUser('edit.user@example.com', ['ROLE_SALARY'], 'Before Edit');
 
-        $this->manager->persist($fixture);
-        $this->manager->flush();
+        $this->client->request('GET', sprintf('%s%d/edit', $this->path, $targetUser->getId()));
 
-        $this->client->request('GET', sprintf('%s%s/edit', $this->path, $fixture->getId()));
-
-        $this->client->submitForm('Update', [
-            'user[nom]' => 'Something New',
-            'user[email]' => 'Something New',
-            'user[password]' => 'Something New',
-            'user[role]' => 'Something New',
-            'user[dateInscription]' => 'Something New',
-            'user[soldeTotal]' => 'Something New',
-        ]);
-
-        self::assertResponseRedirects('/user/');
-
-        $fixture = $this->userRepository->findAll();
-
-        self::assertSame('Something New', $fixture[0]->getNom());
-        self::assertSame('Something New', $fixture[0]->getEmail());
-        self::assertSame('Something New', $fixture[0]->getPassword());
-        self::assertSame('Something New', $fixture[0]->getRole());
-        self::assertSame('Something New', $fixture[0]->getDateInscription());
-        self::assertSame('Something New', $fixture[0]->getSoldeTotal());
+        self::assertResponseStatusCodeSame(200);
+        self::assertSelectorExists('form');
     }
 
     public function testRemove(): void
     {
-        $this->markTestIncomplete();
-        $fixture = new User();
-        $fixture->setNom('Value');
-        $fixture->setEmail('Value');
-        $fixture->setPassword('Value');
-        $fixture->setRole('Value');
-        $fixture->setDateInscription('Value');
-        $fixture->setSoldeTotal('Value');
+        $this->loginAsAdmin();
+        $targetUser = $this->createUser('remove.user@example.com', ['ROLE_ETUDIANT'], 'To Remove');
 
-        $this->manager->persist($fixture);
-        $this->manager->flush();
+        $crawler = $this->client->request('GET', sprintf('%s%d', $this->path, $targetUser->getId()));
+        $csrf = $crawler->filter('form[action$="/user/' . $targetUser->getId() . '"] input[name="_token"]')->attr('value');
 
-        $this->client->request('GET', sprintf('%s%s', $this->path, $fixture->getId()));
-        $this->client->submitForm('Delete');
+        $this->client->request('POST', sprintf('%s%d', $this->path, $targetUser->getId()), [
+            '_token' => $csrf,
+        ]);
 
         self::assertResponseRedirects('/user/');
-        self::assertSame(0, $this->userRepository->count([]));
+
+        $this->manager->clear();
+        self::assertNull($this->userRepository->find($targetUser->getId()));
+    }
+
+    private function loginAsAdmin(): User
+    {
+        $admin = $this->createUser('admin.test@example.com', ['ROLE_ADMIN'], 'Admin Test');
+        $this->client->loginUser($admin);
+
+        return $admin;
+    }
+
+    private function createUser(string $email, array $roles, string $name): User
+    {
+        $user = (new User())
+            ->setNom($name)
+            ->setEmail($email)
+            ->setPassword('password-123')
+            ->setRoles($roles)
+            ->setSoldeTotal(100.0);
+
+        $this->manager->persist($user);
+        $this->manager->flush();
+
+        return $user;
     }
 }

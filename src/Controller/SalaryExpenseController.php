@@ -6,6 +6,7 @@ use App\Entity\Expense;
 use App\Entity\RecurringTransactionRule;
 use App\Entity\Revenue;
 use App\Entity\Transaction;
+use App\Entity\User;
 use App\Form\ExpenseType;
 use App\Form\RevenueType;
 use App\Repository\ExpenseRepository;
@@ -18,6 +19,8 @@ use App\Service\FinancialMonitoringService;
 use App\Service\SalaryExpenseAiService;
 use App\Service\FinancialAlertMailerService;
 use App\Service\PdfShiftService;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -41,8 +44,8 @@ class SalaryExpenseController extends AbstractController
         FinancialMonitoringService $financialMonitoringService,
         \App\Service\ExpenseAnomalyMonitorService $expenseAnomalyMonitorService
     ): Response {
-        $user = $this->getUser();
-        if (!$user) {
+        $user = $this->getAuthenticatedUser();
+        if ($user === null) {
             return $this->redirectToRoute('app_login');
         }
 
@@ -66,15 +69,12 @@ class SalaryExpenseController extends AbstractController
             : ((\DateTimeImmutable::createFromFormat('m-Y', $totalsMonthExpenseRaw) ?: new \DateTimeImmutable())->format('Y-m'));
 
         $revenues = $revenueRepository->findBy(['user' => $user], ['receivedAt' => 'DESC']);
-        $expenses = $expenseRepository->findBy(['user' => $user], ['expenseDate' => 'DESC']);
+        $expenses = $expenseRepository->findForUser($user, ['expenseDate' => 'DESC', 'id' => 'DESC']);
         $revenues = array_values(array_filter(
             $revenues,
             static fn (Revenue $revenue): bool => $revenue->getUser()->getId() === $user->getId()
         ));
-        $expenses = array_values(array_filter(
-            $expenses,
-            static fn (Expense $expense): bool => $expense->getUser()?->getId() === $user->getId()
-        ));
+        $expenses = array_values($expenses);
         $expenseStats = $expenseStatisticsService->build($expenses, $selectedMonth);
         $monthlyAdvice = $salaryExpenseAiService->buildMonthlyExpenseAdvice(
             $expenseStats['months'],
@@ -106,8 +106,7 @@ class SalaryExpenseController extends AbstractController
                 fn(Revenue $r) => $r->getAmount(),
                 array_filter(
                     $revenues,
-                    static fn(Revenue $r): bool => $r->getReceivedAt() !== null
-                        && $r->getReceivedAt()->format('Y-m') === $totalsRevenueMonthNormalized
+                    static fn(Revenue $r): bool => $r->getReceivedAt()->format('Y-m') === $totalsRevenueMonthNormalized
                 )
             ));
         $monthlyTotalExpenses = $totalsExpenseMonthNormalized === 'all'
@@ -317,12 +316,6 @@ class SalaryExpenseController extends AbstractController
         $formRevenue = $this->createForm(RevenueType::class, $revenue);
         $formRevenue->handleRequest($request);
         if ($formRevenue->isSubmitted() && $formRevenue->isValid()) {
-            $user = $this->getUser();
-            if (!$user) {
-                $this->addFlash('error', 'Vous devez etre connecte.');
-                return $this->redirectToRoute('app_salary_expense_index');
-            }
-
             $revenue->setUser($user);
             $entityManager->persist($revenue);
 
@@ -331,7 +324,6 @@ class SalaryExpenseController extends AbstractController
 
             $entityManager->flush();
             $financialMonitoringService->evaluateAndNotify($user, true);
-            $expenseAnomalyMonitorService->handleNewExpense($expense);
 
             $this->addFlash('success', 'Revenu ajoute et solde mis a jour.');
 
@@ -348,13 +340,6 @@ class SalaryExpenseController extends AbstractController
         $formExpense->handleRequest($request);
 
         if ($formExpense->isSubmitted() && $formExpense->isValid()) {
-            $user = $this->getUser();
-
-            if (!$user) {
-                $this->addFlash('error', 'Vous devez etre connecte.');
-                return $this->redirectToRoute('app_salary_expense_index');
-            }
-
             $expense->setUser($user);
             $entityManager->persist($expense);
 
@@ -364,8 +349,12 @@ class SalaryExpenseController extends AbstractController
 
             $transaction = new Transaction();
             $transaction->setType('EXPENSE');
-            $transaction->setMontant($expense->getAmount());
-            $transaction->setDate($expense->getExpenseDate() ?? new \DateTime());
+            $transaction->setMontant((float) $expense->getAmount());
+            $expenseDate = $expense->getExpenseDate() ?? new \DateTime();
+            $transactionDate = $expenseDate instanceof \DateTimeImmutable
+                ? \DateTime::createFromImmutable($expenseDate)
+                : \DateTime::createFromInterface($expenseDate);
+            $transaction->setDate($transactionDate);
             $transaction->setDescription($expense->getDescription());
             $transaction->setModuleSource('SALARY_EXPENSE_MODULE');
             $transaction->setUser($user);
@@ -375,6 +364,7 @@ class SalaryExpenseController extends AbstractController
 
             $entityManager->flush();
             $financialMonitoringService->evaluateAndNotify($user, true);
+            $expenseAnomalyMonitorService->handleNewExpense($expense);
 
             $this->addFlash('success', 'Depense ajoutee et solde mis a jour.');
 
@@ -462,12 +452,13 @@ class SalaryExpenseController extends AbstractController
         RevenueRepository $revenueRepository,
         RecurringTransactionRuleRepository $recurringTransactionRuleRepository
     ): Response {
-        $user = $this->getUser();
-        if (!$user) {
+        $user = $this->getAuthenticatedUser();
+        if ($user === null) {
             return $this->redirectToRoute('app_login');
         }
 
-        if (!$this->isCsrfTokenValid('recurring_accept', $request->request->get('_token', ''))) {
+        $recurringToken = (string) $request->request->get('_token', '');
+        if (!$this->isCsrfTokenValid('recurring_accept', $recurringToken)) {
             $this->addFlash('error', 'Invalid recurring suggestion token.');
             return $this->redirectToRoute('app_salary_expense_index', ['tab' => 'expenses']);
         }
@@ -551,8 +542,8 @@ class SalaryExpenseController extends AbstractController
     #[Route('/revenue/{id}/edit', name: 'revenue_edit', methods: ['GET', 'POST'])]
     public function editRevenue(Request $request, Revenue $revenue, EntityManagerInterface $entityManager): Response
     {
-        $user = $this->getUser();
-        if (!$user || $revenue->getUser()->getId() !== $user->getId()) {
+        $user = $this->getAuthenticatedUser();
+        if ($user === null || $revenue->getUser()->getId() !== $user->getId()) {
             throw $this->createAccessDeniedException('Access denied.');
         }
 
@@ -574,12 +565,13 @@ class SalaryExpenseController extends AbstractController
     #[Route('/revenue/{id}/delete', name: 'revenue_delete', methods: ['POST'])]
     public function deleteRevenue(Request $request, Revenue $revenue, EntityManagerInterface $entityManager): Response
     {
-        $user = $this->getUser();
-        if (!$user || $revenue->getUser()->getId() !== $user->getId()) {
+        $user = $this->getAuthenticatedUser();
+        if ($user === null || $revenue->getUser()->getId() !== $user->getId()) {
             throw $this->createAccessDeniedException('Access denied.');
         }
 
-        if ($this->isCsrfTokenValid('delete' . $revenue->getId(), $request->request->get('_token', ''))) {
+        $deleteRevenueToken = (string) $request->request->get('_token', '');
+        if ($this->isCsrfTokenValid('delete' . $revenue->getId(), $deleteRevenueToken)) {
             $owner = $revenue->getUser();
             $owner->setSoldeTotal(
                 $owner->getSoldeTotal() - $revenue->getAmount()
@@ -596,8 +588,8 @@ class SalaryExpenseController extends AbstractController
     #[Route('/expense/{id}/edit', name: 'expense_edit', methods: ['GET', 'POST'])]
     public function editExpense(Request $request, Expense $expense, EntityManagerInterface $entityManager): Response
     {
-        $user = $this->getUser();
-        if (!$user || $expense->getUser()?->getId() !== $user->getId()) {
+        $user = $this->getAuthenticatedUser();
+        if ($user === null || $expense->getUser()?->getId() !== $user->getId()) {
             throw $this->createAccessDeniedException('Access denied.');
         }
 
@@ -621,12 +613,13 @@ class SalaryExpenseController extends AbstractController
     #[Route('/expense/{id}/delete', name: 'expense_delete', methods: ['POST'])]
     public function deleteExpense(Request $request, Expense $expense, EntityManagerInterface $entityManager): Response
     {
-        $user = $this->getUser();
-        if (!$user || $expense->getUser()?->getId() !== $user->getId()) {
+        $user = $this->getAuthenticatedUser();
+        if ($user === null || $expense->getUser()?->getId() !== $user->getId()) {
             throw $this->createAccessDeniedException('Access denied.');
         }
 
-        if ($this->isCsrfTokenValid('delete' . $expense->getId(), $request->request->get('_token', ''))) {
+        $deleteExpenseToken = (string) $request->request->get('_token', '');
+        if ($this->isCsrfTokenValid('delete' . $expense->getId(), $deleteExpenseToken)) {
             $entityManager->remove($expense);
             $entityManager->flush();
             $this->addFlash('success', 'Depense supprimee.');
@@ -655,8 +648,8 @@ class SalaryExpenseController extends AbstractController
     #[Route('/reset-mail-cache', name: 'reset_mail_cache', methods: ['GET'])]
     public function resetMailCache(FinancialMonitoringService $monitoringService): Response
     {
-        $user = $this->getUser();
-        if (!$user) {
+        $user = $this->getAuthenticatedUser();
+        if ($user === null) {
             return $this->redirectToRoute('app_login');
         }
 
@@ -671,8 +664,8 @@ class SalaryExpenseController extends AbstractController
         Request $request,
         ExpenseCategorySuggestionService $suggestionService
     ): JsonResponse {
-        $user = $this->getUser();
-        if (!$user) {
+        $user = $this->getAuthenticatedUser();
+        if ($user === null) {
             return $this->json(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
         }
 
@@ -689,16 +682,12 @@ class SalaryExpenseController extends AbstractController
     #[Route('/expenses/pdf', name: 'expenses_pdf', methods: ['GET'])]
     public function exportExpensesPdf(Request $request, ExpenseRepository $expenseRepository, PdfShiftService $pdfShiftService): Response
     {
-        $user = $this->getUser();
-        if (!$user) {
+        $user = $this->getAuthenticatedUser();
+        if ($user === null) {
             return $this->redirectToRoute('app_login');
         }
 
-        $expenses = $expenseRepository->findBy(['user' => $user], ['expenseDate' => 'DESC']);
-        $expenses = array_values(array_filter(
-            $expenses,
-            static fn (Expense $expense): bool => $expense->getUser()?->getId() === $user->getId()
-        ));
+        $expenses = array_values($expenseRepository->findForUser($user, ['expenseDate' => 'DESC', 'id' => 'DESC']));
 
         $expenseSearch = trim((string) $request->query->get('expense_search', ''));
         if ($expenseSearch !== '') {
@@ -796,16 +785,35 @@ class SalaryExpenseController extends AbstractController
         try {
             $pdfContent = $pdfShiftService->convertHtmlToPdf($html);
         } catch (\Throwable $exception) {
-            $this->addFlash('error', 'PDF export failed: ' . $exception->getMessage());
-
-            return $this->redirectToRoute('app_salary_expense_index', [
-                'tab' => 'expenses',
-            ]);
+            // Fallback to local PDF rendering if external API is unavailable.
+            $pdfContent = $this->renderPdfWithDompdf($html);
+            $this->addFlash('warning', 'PDFShift unavailable, generated with local fallback.');
         }
 
         return new Response($pdfContent, Response::HTTP_OK, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="expenses_table.pdf"',
         ]);
+    }
+
+    private function getAuthenticatedUser(): ?User
+    {
+        $user = $this->getUser();
+
+        return $user instanceof User ? $user : null;
+    }
+
+    private function renderPdfWithDompdf(string $html): string
+    {
+        $options = new Options();
+        $options->set('defaultFont', 'DejaVu Sans');
+        $options->setIsRemoteEnabled(true);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        return $dompdf->output();
     }
 }

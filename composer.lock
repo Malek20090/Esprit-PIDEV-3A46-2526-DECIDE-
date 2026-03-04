@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f3eecd14a09f48ad28440fb5a9d7889b",
+    "content-hash": "f102dfc0c4db2c0ab030bc0d92753191",
     "packages": [
         {
             "name": "composer/semver",
@@ -9442,6 +9442,7 @@
         },
         {
             "name": "webmozart/assert",
+<<<<<<< HEAD
             "version": "1.11.0",
             "source": {
                 "type": "git",
@@ -9452,10 +9453,27 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/webmozarts/assert/zipball/11cb2199493b2f8a3b53e7f19068fc6aac760991",
                 "reference": "11cb2199493b2f8a3b53e7f19068fc6aac760991",
+=======
+            "version": "1.12.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/webmozarts/assert.git",
+                "reference": "9be6926d8b485f55b9229203f962b51ed377ba68"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/webmozarts/assert/zipball/9be6926d8b485f55b9229203f962b51ed377ba68",
+                "reference": "9be6926d8b485f55b9229203f962b51ed377ba68",
+>>>>>>> 169b37fc8ff6a7e845f9fa1d92095aa2c03d5469
                 "shasum": ""
             },
             "require": {
                 "ext-ctype": "*",
+<<<<<<< HEAD
+=======
+                "ext-date": "*",
+                "ext-filter": "*",
+>>>>>>> 169b37fc8ff6a7e845f9fa1d92095aa2c03d5469
                 "php": "^7.2 || ^8.0"
             },
             "conflict": {
@@ -9494,24 +9512,24 @@
             ],
             "support": {
                 "issues": "https://github.com/webmozarts/assert/issues",
-                "source": "https://github.com/webmozarts/assert/tree/1.11.0"
+                "source": "https://github.com/webmozarts/assert/tree/1.12.1"
             },
-            "time": "2022-06-03T18:03:27+00:00"
+            "time": "2025-10-29T15:56:20+00:00"
         }
     ],
     "packages-dev": [
         {
             "name": "ahmed-bhs/doctrine-doctor",
-            "version": "v1.0.5",
+            "version": "v1.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ahmed-bhs/doctrine-doctor.git",
-                "reference": "a72f2a1ee060bc4b1f1645a849b83c42793bb067"
+                "reference": "c679438aa4bbc4ee82d04931a511a05cf527ab2d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ahmed-bhs/doctrine-doctor/zipball/a72f2a1ee060bc4b1f1645a849b83c42793bb067",
-                "reference": "a72f2a1ee060bc4b1f1645a849b83c42793bb067",
+                "url": "https://api.github.com/repos/ahmed-bhs/doctrine-doctor/zipball/c679438aa4bbc4ee82d04931a511a05cf527ab2d",
+                "reference": "c679438aa4bbc4ee82d04931a511a05cf527ab2d",
                 "shasum": ""
             },
             "require": {
@@ -9602,7 +9620,7 @@
                 "issues": "https://github.com/ahmed-bhs/doctrine-doctor/issues",
                 "source": "https://github.com/ahmed-bhs/doctrine-doctor"
             },
-            "time": "2026-03-04T15:45:00+00:00"
+            "time": "2025-12-30T13:11:11+00:00"
         },
         {
             "name": "doctrine/data-fixtures",
@@ -12183,5 +12201,5 @@
         "ext-iconv": "*"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }
