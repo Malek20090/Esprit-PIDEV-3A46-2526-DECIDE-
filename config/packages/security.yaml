@@ -44,9 +44,4 @@ security:
     # Role-based sections
     - { path: ^/salary, roles: ROLE_SALARY }
     - { path: ^/student, roles: ROLE_ETUDIANT }
-<<<<<<< HEAD
-
-
-=======
     - { path: ^/certification, roles: ROLE_ETUDIANT }
->>>>>>> origin

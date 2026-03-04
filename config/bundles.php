@@ -20,4 +20,5 @@ return [
     Nucleos\DompdfBundle\NucleosDompdfBundle::class => ['all' => true],
     DH\AuditorBundle\DHAuditorBundle::class => ['all' => true],
     Vich\UploaderBundle\VichUploaderBundle::class => ['all' => true],
+    AhmedBhs\DoctrineDoctor\DoctrineDoctorBundle::class => ['dev' => true, 'test' => true],
 ];

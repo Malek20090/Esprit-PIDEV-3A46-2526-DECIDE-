@@ -10,11 +10,7 @@ use Doctrine\Migrations\AbstractMigration;
 /**
  * Auto-generated Migration: Please modify to your needs!
  */
-<<<<<<<< HEAD:migrations/Version20260225132255.php
-final class Version20260225132255 extends AbstractMigration
-========
-final class Version20260225160527 extends AbstractMigration
->>>>>>>> origin:migrations/Version20260225160527.php
+final class Version20260225225543 extends AbstractMigration
 {
     public function getDescription(): string
     {
@@ -24,10 +20,7 @@ final class Version20260225160527 extends AbstractMigration
     public function up(Schema $schema): void
     {
         // this up() migration is auto-generated, please modify it to your needs
-<<<<<<<< HEAD:migrations/Version20260225132255.php
-========
         $this->addSql('CREATE TABLE ai_objective_report (id INT AUTO_INCREMENT NOT NULL, objectif_id INT NOT NULL, content LONGTEXT NOT NULL, risk_score INT DEFAULT NULL, created_at DATETIME NOT NULL, INDEX IDX_62190510157D1AD4 (objectif_id), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
->>>>>>>> origin:migrations/Version20260225160527.php
         $this->addSql('CREATE TABLE cas_relles (id INT AUTO_INCREMENT NOT NULL, user_id INT NOT NULL, imprevus_id INT DEFAULT NULL, confirmed_by_id INT DEFAULT NULL, financial_goal_id INT DEFAULT NULL, titre VARCHAR(150) NOT NULL, description LONGTEXT DEFAULT NULL, type VARCHAR(10) NOT NULL, categorie VARCHAR(40) DEFAULT NULL, montant DOUBLE PRECISION NOT NULL, solution VARCHAR(30) NOT NULL, date_effet DATE NOT NULL, resultat VARCHAR(20) DEFAULT NULL, raison_refus LONGTEXT DEFAULT NULL, confirmed_at DATETIME DEFAULT NULL COMMENT \'(DC2Type:datetime_immutable)\', justificatif_file_name VARCHAR(255) DEFAULT NULL, updated_at DATETIME DEFAULT NULL COMMENT \'(DC2Type:datetime_immutable)\', INDEX IDX_9383DCA3A76ED395 (user_id), INDEX IDX_9383DCA3AF9C32D8 (imprevus_id), INDEX IDX_9383DCA36F45385D (confirmed_by_id), INDEX IDX_9383DCA334BE5894 (financial_goal_id), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
         $this->addSql('CREATE TABLE cas_relles_audit (id INT UNSIGNED AUTO_INCREMENT NOT NULL, type VARCHAR(10) NOT NULL, object_id VARCHAR(255) NOT NULL, discriminator VARCHAR(255) DEFAULT NULL, transaction_hash VARCHAR(40) DEFAULT NULL, diffs JSON DEFAULT NULL, blame_id VARCHAR(255) DEFAULT NULL, blame_user VARCHAR(255) DEFAULT NULL, blame_user_fqdn VARCHAR(255) DEFAULT NULL, blame_user_firewall VARCHAR(100) DEFAULT NULL, ip VARCHAR(45) DEFAULT NULL, created_at DATETIME NOT NULL COMMENT \'(DC2Type:datetime_immutable)\', INDEX type_05b1d6f74ecb471aee099bc1d1b6c77f_idx (type), INDEX object_id_05b1d6f74ecb471aee099bc1d1b6c77f_idx (object_id), INDEX discriminator_05b1d6f74ecb471aee099bc1d1b6c77f_idx (discriminator), INDEX transaction_hash_05b1d6f74ecb471aee099bc1d1b6c77f_idx (transaction_hash), INDEX blame_id_05b1d6f74ecb471aee099bc1d1b6c77f_idx (blame_id), INDEX created_at_05b1d6f74ecb471aee099bc1d1b6c77f_idx (created_at), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
         $this->addSql('CREATE TABLE certification_results (id INT AUTO_INCREMENT NOT NULL, user_name VARCHAR(255) NOT NULL, user_email VARCHAR(255) NOT NULL, type VARCHAR(50) NOT NULL, certification_name VARCHAR(255) NOT NULL, score INT NOT NULL, total INT NOT NULL, percentage INT NOT NULL, passed TINYINT(1) NOT NULL, date DATETIME NOT NULL, PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');

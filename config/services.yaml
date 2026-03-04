@@ -9,6 +9,8 @@ parameters:
     google_ai_model_default: 'gemini-2.5-flash'
     openai_api_key_default: ''
     openai_model_default: 'gpt-4o-mini'
+    pdfshift_api_key_default: ''
+    pdfshift_processor_version_default: '142'
     facepp_base_url: '%env(string:FACEPP_API_BASE_URL)%'
     facepp_min_confidence: '%env(float:FACEPP_MIN_CONFIDENCE)%'
     expense_anomaly_sensitivity: 2.5
@@ -63,3 +65,8 @@ services:
         arguments:
             $sensitivity: '%expense_anomaly_sensitivity%'
             $minAmount: '%expense_anomaly_min_amount%'
+
+    App\Service\PdfShiftService:
+        arguments:
+            $apiKey: '%env(default:pdfshift_api_key_default:PDFSHIFT_API_KEY)%'
+            $processorVersion: '%env(default:pdfshift_processor_version_default:PDFSHIFT_PROCESSOR_VERSION)%'
