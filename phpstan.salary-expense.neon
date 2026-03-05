@@ -1,5 +1,6 @@
 parameters:
-    level: 5
+    level: 8
+
     paths:
         - src/Controller/SalaryExpenseController.php
         - src/Entity/Expense.php
@@ -17,8 +18,10 @@ parameters:
         - src/Service/SalaryExpenseAiService.php
         - src/Service/RecurringPatternService.php
         - src/Command/GenerateRecurringTransactionsCommand.php
+        
     treatPhpDocTypesAsCertain: false
     ignoreErrors:
+
         - identifier: property.unusedType
           path: src/Entity/Expense.php
         - identifier: property.unusedType
