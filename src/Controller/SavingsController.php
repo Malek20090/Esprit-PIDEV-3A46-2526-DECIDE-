@@ -25,12 +25,49 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\Security;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\UX\Chartjs\Builder\ChartBuilderInterface;
 use Symfony\UX\Chartjs\Model\Chart;
 
 class SavingsController extends AbstractController
 {
+    private function logDatabaseContext(Connection $conn, string $context): void
+    {
+        if (!$this->container || !$this->container->has('logger')) {
+            return;
+        }
+
+        /** @var LoggerInterface $logger */
+        $logger = $this->container->get('logger');
+
+        try {
+            $dbName = (string) ($conn->fetchOne('SELECT DATABASE()') ?? '');
+            $host = (string) ($conn->fetchOne("SELECT @@hostname") ?? '');
+            $port = (string) ($conn->fetchOne("SELECT @@port") ?? '');
+            $logger->info('SavingsController DB context', [
+                'context' => $context,
+                'database' => $dbName,
+                'host' => $host,
+                'port' => $port,
+            ]);
+        } catch (\Throwable $e) {
+            $logger->warning('Unable to log DB context', [
+                'context' => $context,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function noCache(Response $response): Response
+    {
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
+        $response->headers->set('Expires', '0');
+
+        return $response;
+    }
+
     // ----------------------------
     // Helpers
     // ----------------------------
@@ -1259,6 +1296,7 @@ class SavingsController extends AbstractController
         TransactionRepository $transactionRepository
     ): Response
     {
+        $this->logDatabaseContext($conn, 'savings.index');
         $userId = $this->resolveUserId($conn, $security, $request);
 
         $tab = (string) $request->query->get('tab', 'savings');
@@ -1511,7 +1549,7 @@ class SavingsController extends AbstractController
         ]);
         $pieChart->setOptions(['responsive' => true]);
 
-        return $this->render('savings/index.html.twig', [
+        $response = $this->render('savings/index.html.twig', [
             'tab' => $tab,
             'stats' => $stats,
             'savingAccount' => $currentAccount ?? [],
@@ -1531,6 +1569,8 @@ class SavingsController extends AbstractController
             'bar_chart' => $barChart,
             'pie_chart' => $pieChart,
         ]);
+
+        return $this->noCache($response);
     }
 
     #[Route('/savings/calendar/data', name: 'app_savings_calendar_data', methods: ['GET'])]
@@ -1904,6 +1944,7 @@ class SavingsController extends AbstractController
     #[Route('/savings/deposit', name: 'app_savings_deposit', methods: ['POST'])]
     public function deposit(Connection $conn, Security $security, Request $request, ValidatorInterface $validator): Response
     {
+        $this->logDatabaseContext($conn, 'savings.deposit');
         $userId = $this->resolveUserId($conn, $security, $request);
         $accPack = $this->getOrCreateCurrentAccount($conn, $userId);
 
@@ -1982,6 +2023,7 @@ class SavingsController extends AbstractController
     #[Route('/savings/goal/new', name: 'app_goal_new', methods: ['POST'])]
     public function goalNew(Connection $conn, Security $security, Request $request, ValidatorInterface $validator): Response
     {
+        $this->logDatabaseContext($conn, 'savings.goal_new');
         $userId  = $this->resolveUserId($conn, $security, $request);
         $accPack = $this->getOrCreateCurrentAccount($conn, $userId);
         $goalAccCol = $this->goalAccountFkColumn($conn);
@@ -2051,6 +2093,7 @@ class SavingsController extends AbstractController
     #[Route('/savings/goal/{id}/edit', name: 'app_goal_edit', methods: ['POST'])]
     public function goalEdit(Connection $conn, Security $security, Request $request, int $id, ValidatorInterface $validator): Response
     {
+        $this->logDatabaseContext($conn, 'savings.goal_edit');
         $userId  = $this->resolveUserId($conn, $security, $request);
         $accPack = $this->getOrCreateCurrentAccount($conn, $userId);
         $goalAccCol = $this->goalAccountFkColumn($conn);
@@ -2090,6 +2133,7 @@ class SavingsController extends AbstractController
     #[Route('/savings/goal/{id}/delete', name: 'app_goal_delete', methods: ['POST'])]
     public function goalDelete(Connection $conn, Security $security, Request $request, int $id): Response
     {
+        $this->logDatabaseContext($conn, 'savings.goal_delete');
         $userId  = $this->resolveUserId($conn, $security, $request);
         $accPack = $this->getOrCreateCurrentAccount($conn, $userId);
         $goalAccCol = $this->goalAccountFkColumn($conn);
@@ -2108,6 +2152,7 @@ class SavingsController extends AbstractController
     #[Route('/savings/goal/{id}/contribute', name: 'app_goal_contribute', methods: ['POST'])]
     public function goalContribute(Connection $conn, Security $security, Request $request, int $id, ValidatorInterface $validator): Response
     {
+        $this->logDatabaseContext($conn, 'savings.goal_contribute');
         $userId  = $this->resolveUserId($conn, $security, $request);
         $accPack = $this->getOrCreateCurrentAccount($conn, $userId);
         $goalAccCol = $this->goalAccountFkColumn($conn);
@@ -2216,6 +2261,7 @@ class SavingsController extends AbstractController
     #[Route('/savings/rate/update', name: 'app_savings_rate_update', methods: ['POST'])]
     public function updateRate(Connection $conn, Security $security, Request $request, ValidatorInterface $validator): Response
     {
+        $this->logDatabaseContext($conn, 'savings.rate_update');
         $userId  = $this->resolveUserId($conn, $security, $request);
         $accPack = $this->getOrCreateCurrentAccount($conn, $userId);
 
@@ -2261,6 +2307,7 @@ class SavingsController extends AbstractController
     #[Route('/savings/tx/{id}/delete', name: 'app_savings_tx_delete', methods: ['POST'])]
     public function txDelete(Connection $conn, Security $security, Request $request, int $id): Response
     {
+        $this->logDatabaseContext($conn, 'savings.tx_delete');
         $userId = $this->resolveUserId($conn, $security, $request);
         $this->doDeleteTransaction($conn, $userId, $id);
         $this->addFlash('success', '✅ Transaction supprimée.');
@@ -2270,6 +2317,7 @@ class SavingsController extends AbstractController
     #[Route('/savings/tx/{id}/edit', name: 'app_savings_tx_edit', methods: ['POST'])]
     public function txEdit(Connection $conn, Security $security, Request $request, int $id): Response
     {
+        $this->logDatabaseContext($conn, 'savings.tx_edit');
         $userId = $this->resolveUserId($conn, $security, $request);
 
         $amount = $this->safeFloat($request->request->get('montant'));
